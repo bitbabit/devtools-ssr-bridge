@@ -1,0 +1,95 @@
+{
+  "name": "@bitbabit/devtools-ssr-bridge",
+  "version": "0.1.1",
+  "description": "SSR bridge utilities for Magento Developer Tools with Next.js and React SSR support.",
+  "keywords": [
+    "magento",
+    "magento2",
+    "nextjs",
+    "next",
+    "ssr",
+    "devtools",
+    "graphql",
+    "axios",
+    "profiler"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js",
+      "require": "./dist/core.cjs"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
+    },
+    "./instrument": {
+      "types": "./dist/instrument.d.ts",
+      "node": "./dist/instrument.cjs",
+      "import": "./dist/instrument.js",
+      "require": "./dist/instrument.cjs"
+    },
+    "./attach-axios": {
+      "types": "./dist/attach-axios.d.ts",
+      "node": "./dist/attach-axios.cjs",
+      "import": "./dist/attach-axios.js",
+      "require": "./dist/attach-axios.cjs"
+    },
+    "./next-app-route": {
+      "types": "./dist/next-app-route.d.ts",
+      "import": "./dist/next-app-route.js",
+      "require": "./dist/next-app-route.cjs"
+    }
+  },
+  "bin": {
+    "devtools-ssr-bridge-setup": "bin/setup.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts --dts --format esm,cjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "next": ">=13"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    }
+  }
+}
