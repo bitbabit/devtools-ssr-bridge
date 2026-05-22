@@ -1,3 +1,12 @@
+# Publishes when you publish a GitHub Release, or via Actions → Run workflow.
+#
+# REQUIRED ON NPM (one-time): https://www.npmjs.com/package/@bitbabit/devtools-ssr-bridge/access
+#   → Publishing access → Trusted publishing → GitHub Actions
+#   → Repository: bitbabit/devtools-ssr-bridge
+#   → Workflow filename: publish.yml
+#   → Environment: (leave empty)
+# Without this, npm publish fails with 403 even if NPM_TOKEN passes npm whoami.
+
 name: Publish to npm
 
 on:
@@ -16,9 +25,7 @@ jobs:
 
     permissions:
       contents: read
-
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      id-token: write
 
     steps:
       - name: Checkout
@@ -29,7 +36,6 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-          scope: '@bitbabit'
           cache: npm
 
       - name: Install dependencies
@@ -57,16 +63,6 @@ jobs:
           test -f dist/index.d.ts
           test -f bin/setup.mjs
 
-      - name: Verify npm authentication
-        run: |
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error::Add repository secret NPM_TOKEN (npm granular token, Read+Write on @bitbabit/devtools-ssr-bridge)."
-            exit 1
-          fi
-          echo "npm user: $(npm whoami)"
-          npm config get registry
-          npm config get '@bitbabit:registry' || true
-
       - name: Check version not already on npm
         id: version_check
         run: |
@@ -74,25 +70,16 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           if npm view "@bitbabit/devtools-ssr-bridge@${VERSION}" version 2>/dev/null; then
             echo "already_published=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Version ${VERSION} is already on npm; skipping publish."
+            echo "Version ${VERSION} is already on npm — skipping publish."
           else
             echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish to npm
+      - name: Publish to npm (Trusted Publishing / OIDC)
         if: steps.version_check.outputs.already_published != 'true'
-        id: publish
         run: |
           VERSION="${{ steps.version_check.outputs.version }}"
-          echo "Publishing @bitbabit/devtools-ssr-bridge@${VERSION}..."
-          npm publish --access public --loglevel verbose
-
-      - name: Publish failed — read npm error
-        if: failure() && steps.publish.outcome == 'failure'
-        run: |
-          echo "::error::npm publish failed (auth whoami succeeded, publish did not)."
-          echo "Fix NPM_TOKEN on GitHub → Settings → Secrets → Actions:"
-          echo "  • Granular token: Read and Write on package @bitbabit/devtools-ssr-bridge (or @bitbabit scope)"
-          echo "  • If npm 2FA is enabled: enable 'Bypass 2FA for automation' on the token"
-          echo "  • Token user must be an npm owner of @bitbabit/devtools-ssr-bridge"
-          exit 1
+          echo "## Publish @bitbabit/devtools-ssr-bridge@${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          set -o pipefail
+          npm publish --provenance --access public 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"
