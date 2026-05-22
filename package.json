@@ -1,6 +1,6 @@
 {
   "name": "@bitbabit/devtools-ssr-bridge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SSR bridge utilities for Magento Developer Tools with Next.js and React SSR support.",
   "keywords": [
     "magento",
