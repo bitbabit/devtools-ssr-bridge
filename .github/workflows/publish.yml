@@ -17,17 +17,20 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          scope: '@bitbabit'
           cache: npm
-          always-auth: true
 
       - name: Install dependencies
         run: npm ci
@@ -57,17 +60,39 @@ jobs:
       - name: Verify npm authentication
         run: |
           if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error::NPM_TOKEN secret is missing. Add it under Settings → Secrets → Actions."
+            echo "::error::Add repository secret NPM_TOKEN (npm granular token, Read+Write on @bitbabit/devtools-ssr-bridge)."
             exit 1
           fi
           echo "npm user: $(npm whoami)"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm config get registry
+          npm config get '@bitbabit:registry' || true
 
-      - name: Publish to npm
+      - name: Check version not already on npm
+        id: version_check
         run: |
           VERSION=$(npm pkg get version | tr -d '"')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if npm view "@bitbabit/devtools-ssr-bridge@${VERSION}" version 2>/dev/null; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Version ${VERSION} is already on npm; skipping publish."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.version_check.outputs.already_published != 'true'
+        id: publish
+        run: |
+          VERSION="${{ steps.version_check.outputs.version }}"
           echo "Publishing @bitbabit/devtools-ssr-bridge@${VERSION}..."
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --access public --loglevel verbose
+
+      - name: Publish failed — read npm error
+        if: failure() && steps.publish.outcome == 'failure'
+        run: |
+          echo "::error::npm publish failed (auth whoami succeeded, publish did not)."
+          echo "Fix NPM_TOKEN on GitHub → Settings → Secrets → Actions:"
+          echo "  • Granular token: Read and Write on package @bitbabit/devtools-ssr-bridge (or @bitbabit scope)"
+          echo "  • If npm 2FA is enabled: enable 'Bypass 2FA for automation' on the token"
+          echo "  • Token user must be an npm owner of @bitbabit/devtools-ssr-bridge"
+          exit 1
