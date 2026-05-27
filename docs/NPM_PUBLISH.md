@@ -15,9 +15,9 @@ CI uses **npm Trusted Publishing** (OIDC). A granular token that passes `npm who
 
 ## Release from GitHub
 
-1. Bump `"version"` in `package.json` (e.g. `0.1.4`).
+1. Bump `"version"` in `package.json` (e.g. `0.2.0`).
 2. Commit, push `main`.
-3. Tag: `git tag v0.1.4 && git push origin v0.1.4`
+3. Tag: `git tag v0.2.0 && git push origin v0.2.0`
 4. **Releases** → **Draft new release** → choose tag → **Publish release**.
 
 Or: **Actions** → **Publish to npm** → **Run workflow** (uses version in `package.json` on `main`).

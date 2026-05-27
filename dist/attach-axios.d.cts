@@ -1,4 +1,5 @@
 import { patchAxios } from './instrument.cjs';
+import './ssr-id-store.cjs';
 
 /**
  * Attaches SSR devtools request interceptors to the given axios instances.

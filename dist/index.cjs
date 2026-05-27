@@ -3,6 +3,9 @@ var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -17,68 +20,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/index.ts
-var index_exports = {};
-__export(index_exports, {
-  CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS: () => CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS,
-  CHROME_EXTENSION_DEFAULT_EXCLUDED_PATHS: () => CHROME_EXTENSION_DEFAULT_EXCLUDED_PATHS,
-  DEBUG_API_KEY_HEADER: () => DEBUG_API_KEY_HEADER,
-  DEBUG_MODE_HEADER: () => DEBUG_MODE_HEADER,
-  DEVTOOLS_CONFIG_COOKIE: () => DEVTOOLS_CONFIG_COOKIE,
-  DEVTOOLS_CONFIG_TTL: () => DEVTOOLS_CONFIG_TTL,
-  DEVTOOLS_PROBE_COOKIE: () => DEVTOOLS_PROBE_COOKIE,
-  DEVTOOLS_PROBE_TTL: () => DEVTOOLS_PROBE_TTL,
-  DevToolsSetupPopup: () => DevToolsSetupPopup,
-  ReactSsrDebugContext: () => ReactSsrDebugContext,
-  SSR_ID_HEADER: () => SSR_ID_HEADER,
-  SSR_ID_REQUEST_HEADER: () => SSR_ID_REQUEST_HEADER,
-  SSR_SOURCE_HEADER: () => SSR_SOURCE_HEADER,
-  attachSsrIdToNextResponse: () => attachSsrIdToNextResponse,
-  buildDebugHeaders: () => buildDebugHeaders,
-  createDebugFetch: () => createDebugFetch,
-  createDevToolsConfigHandler: () => createDevToolsConfigHandler,
-  createNextSsrContext: () => createNextSsrContext,
-  createReactSsrDebugValue: () => createReactSsrDebugValue,
-  createSsrContextFromCookies: () => createSsrContextFromCookies,
-  createSsrId: () => createSsrId,
-  deserializeDevToolsConfig: () => deserializeDevToolsConfig,
-  devtoolsSsrCorrelationMiddleware: () => devtoolsSsrCorrelationMiddleware,
-  getAutoDebugFetch: () => getAutoDebugFetch,
-  getDebugHeaders: () => getDebugHeaders,
-  handleDevToolsProbe: () => handleDevToolsProbe,
-  hasDevToolsProbe: () => hasDevToolsProbe,
-  isValidForwardedSsrId: () => isValidForwardedSsrId,
-  mergeHeaders: () => mergeHeaders,
-  patchAxios: () => patchAxios,
-  patchAxiosDefault: () => patchAxiosDefault,
-  patchFetch: () => patchFetch,
-  prepareDevtoolsSsrRequest: () => prepareDevtoolsSsrRequest,
-  readDevToolsConfig: () => readDevToolsConfig,
-  register: () => register,
-  resolveDebugApiKey: () => resolveDebugApiKey,
-  serializeDevToolsConfig: () => serializeDevToolsConfig,
-  setSsrIdOnMiddlewareResponse: () => setSsrIdOnMiddlewareResponse,
-  useDevToolsProbe: () => useDevToolsProbe,
-  useSsrId: () => useSsrId,
-  withDevToolsHeaders: () => withDevToolsHeaders,
-  withDevtoolsSsrBridge: () => withDevtoolsSsrBridge
-});
-module.exports = __toCommonJS(index_exports);
-
 // src/core.ts
-var SSR_ID_HEADER = "X-SSR-ID";
-var SSR_ID_REQUEST_HEADER = "x-devtools-ssr-id";
-var DEBUG_MODE_HEADER = "X-Debug-Mode";
-var DEBUG_API_KEY_HEADER = "X-Debug-Api-Key";
-var SSR_SOURCE_HEADER = "X-SSR-Source";
-var DEVTOOLS_PROBE_COOKIE = "__devtools_probe";
-var DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
-var DEVTOOLS_PROBE_TTL = 300;
-var DEVTOOLS_CONFIG_TTL = 6 * 60 * 60;
-var MAX_API_KEY_LENGTH = 512;
-var MAX_CUSTOM_HEADER_COUNT = 32;
-var MAX_ALLOWED_PATH_COUNT = 32;
-var HEADER_NAME_TOKEN_REGEX = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 function serializeDevToolsConfig(config) {
   return encodeURIComponent(JSON.stringify(config));
 }
@@ -202,6 +144,124 @@ function createDebugFetch(fetchImpl, config) {
     return fetchImpl(input, { ...init, headers });
   };
 }
+var SSR_ID_HEADER, SSR_ID_REQUEST_HEADER, DEBUG_MODE_HEADER, DEBUG_API_KEY_HEADER, SSR_SOURCE_HEADER, DEVTOOLS_PROBE_COOKIE, DEVTOOLS_CONFIG_COOKIE, DEVTOOLS_SSR_ID_COOKIE, DEVTOOLS_PROBE_TTL, DEVTOOLS_CONFIG_TTL, MAX_API_KEY_LENGTH, MAX_CUSTOM_HEADER_COUNT, MAX_ALLOWED_PATH_COUNT, HEADER_NAME_TOKEN_REGEX;
+var init_core = __esm({
+  "src/core.ts"() {
+    "use strict";
+    SSR_ID_HEADER = "X-SSR-ID";
+    SSR_ID_REQUEST_HEADER = "x-devtools-ssr-id";
+    DEBUG_MODE_HEADER = "X-Debug-Mode";
+    DEBUG_API_KEY_HEADER = "X-Debug-Api-Key";
+    SSR_SOURCE_HEADER = "X-SSR-Source";
+    DEVTOOLS_PROBE_COOKIE = "__devtools_probe";
+    DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
+    DEVTOOLS_SSR_ID_COOKIE = "__devtools_ssr_id";
+    DEVTOOLS_PROBE_TTL = 300;
+    DEVTOOLS_CONFIG_TTL = 6 * 60 * 60;
+    MAX_API_KEY_LENGTH = 512;
+    MAX_CUSTOM_HEADER_COUNT = 32;
+    MAX_ALLOWED_PATH_COUNT = 32;
+    HEADER_NAME_TOKEN_REGEX = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+  }
+});
+
+// src/ssr-correlation.ts
+var ssr_correlation_exports = {};
+__export(ssr_correlation_exports, {
+  bindDevtoolsSsrCorrelation: () => bindDevtoolsSsrCorrelation,
+  readSsrIdFromAppRouterHeaders: () => readSsrIdFromAppRouterHeaders
+});
+var import_react2, MIDDLEWARE_SSR_HEADER_NAMES, readSsrIdFromAppRouterHeaders, bindDevtoolsSsrCorrelation;
+var init_ssr_correlation = __esm({
+  "src/ssr-correlation.ts"() {
+    "use strict";
+    import_react2 = require("react");
+    init_core();
+    MIDDLEWARE_SSR_HEADER_NAMES = [
+      SSR_ID_REQUEST_HEADER,
+      "x-ssr-id",
+      SSR_ID_HEADER,
+      "x-middleware-request-x-devtools-ssr-id"
+    ];
+    readSsrIdFromAppRouterHeaders = (0, import_react2.cache)(async () => {
+      try {
+        if (typeof require === "undefined") {
+          return null;
+        }
+        const { headers: headersFn } = require("next/headers");
+        const store = await Promise.resolve(headersFn());
+        for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
+          const raw = store.get(name);
+          if (raw && isValidForwardedSsrId(raw)) {
+            return raw;
+          }
+        }
+      } catch {
+      }
+      return null;
+    });
+    bindDevtoolsSsrCorrelation = (0, import_react2.cache)(async () => {
+      return readSsrIdFromAppRouterHeaders();
+    });
+  }
+});
+
+// src/index.ts
+var index_exports = {};
+__export(index_exports, {
+  CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS: () => CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS,
+  CHROME_EXTENSION_DEFAULT_EXCLUDED_PATHS: () => CHROME_EXTENSION_DEFAULT_EXCLUDED_PATHS,
+  DEBUG_API_KEY_HEADER: () => DEBUG_API_KEY_HEADER,
+  DEBUG_MODE_HEADER: () => DEBUG_MODE_HEADER,
+  DEVTOOLS_CONFIG_COOKIE: () => DEVTOOLS_CONFIG_COOKIE,
+  DEVTOOLS_CONFIG_TTL: () => DEVTOOLS_CONFIG_TTL,
+  DEVTOOLS_PROBE_COOKIE: () => DEVTOOLS_PROBE_COOKIE,
+  DEVTOOLS_PROBE_TTL: () => DEVTOOLS_PROBE_TTL,
+  DEVTOOLS_SSR_ID_COOKIE: () => DEVTOOLS_SSR_ID_COOKIE,
+  DevToolsSetupPopup: () => DevToolsSetupPopup,
+  ReactSsrDebugContext: () => ReactSsrDebugContext,
+  SSR_ID_HEADER: () => SSR_ID_HEADER,
+  SSR_ID_REQUEST_HEADER: () => SSR_ID_REQUEST_HEADER,
+  SSR_SOURCE_HEADER: () => SSR_SOURCE_HEADER,
+  attachSsrIdToNextResponse: () => attachSsrIdToNextResponse,
+  bindDevtoolsSsrCorrelation: () => bindDevtoolsSsrCorrelation,
+  buildDebugHeaders: () => buildDebugHeaders,
+  createDebugFetch: () => createDebugFetch,
+  createDevToolsConfigHandler: () => createDevToolsConfigHandler,
+  createNextSsrContext: () => createNextSsrContext,
+  createReactSsrDebugValue: () => createReactSsrDebugValue,
+  createSsrContextFromCookies: () => createSsrContextFromCookies,
+  createSsrId: () => createSsrId,
+  deserializeDevToolsConfig: () => deserializeDevToolsConfig,
+  devtoolsSsrCorrelationMiddleware: () => devtoolsSsrCorrelationMiddleware,
+  forwardDevtoolsSsrRequestToServer: () => forwardDevtoolsSsrRequestToServer,
+  getAutoDebugFetch: () => getAutoDebugFetch,
+  getDebugHeaders: () => getDebugHeaders,
+  handleDevToolsProbe: () => handleDevToolsProbe,
+  hasDevToolsProbe: () => hasDevToolsProbe,
+  isValidForwardedSsrId: () => isValidForwardedSsrId,
+  mergeHeaders: () => mergeHeaders,
+  patchAxios: () => patchAxios,
+  patchAxiosCreate: () => patchAxiosCreate,
+  patchAxiosDefault: () => patchAxiosDefault,
+  patchFetch: () => patchFetch,
+  pinSsrIdForRequest: () => pinSsrIdForRequest,
+  prepareDevtoolsSsrRequest: () => prepareDevtoolsSsrRequest,
+  readDevToolsConfig: () => readDevToolsConfig,
+  readSsrIdFromAppRouterHeaders: () => readSsrIdFromAppRouterHeaders,
+  register: () => register,
+  resolveDebugApiKey: () => resolveDebugApiKey,
+  serializeDevToolsConfig: () => serializeDevToolsConfig,
+  setSsrIdOnMiddlewareResponse: () => setSsrIdOnMiddlewareResponse,
+  shouldAllocateNewDevtoolsSsrId: () => shouldAllocateNewDevtoolsSsrId,
+  shouldSkipDevtoolsSsrCorrelation: () => shouldSkipDevtoolsSsrCorrelation,
+  useDevToolsProbe: () => useDevToolsProbe,
+  useSsrId: () => useSsrId,
+  withDevToolsHeaders: () => withDevToolsHeaders,
+  withDevtoolsSsrBridge: () => withDevtoolsSsrBridge
+});
+module.exports = __toCommonJS(index_exports);
+init_core();
 
 // src/extension-align.ts
 var CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS = [
@@ -227,6 +287,7 @@ var CHROME_EXTENSION_DEFAULT_EXCLUDED_PATHS = [
 ];
 
 // src/next.ts
+init_core();
 function createNextSsrContext(config = {}) {
   const ssrId = createSsrId();
   const enabled = config.enabled ?? true;
@@ -276,19 +337,76 @@ function handleDevToolsProbe(request, response, options = {}) {
   });
   return true;
 }
-function prepareDevtoolsSsrRequest(request) {
+function shouldSkipDevtoolsSsrCorrelation(pathname) {
+  const path = pathname.toLowerCase();
+  return path.includes("com.chrome.devtools.json") || path.includes("/.well-known/appspecific/");
+}
+function shouldAllocateNewDevtoolsSsrId(pathname) {
+  if (!pathname || shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return false;
+  }
+  if (pathname.startsWith("/_next") || pathname.startsWith("/api")) {
+    return false;
+  }
+  return true;
+}
+function applySsrIdToMiddlewareRequest(request, ssrId) {
+  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  request.headers.set(SSR_ID_HEADER, ssrId);
+}
+function prepareDevtoolsSsrRequest(request, options = {}) {
+  const pathname = options.pathname ?? "";
+  if (pathname && shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return null;
+  }
   if (!request.cookies.get(DEVTOOLS_CONFIG_COOKIE)?.value?.trim()) {
     return null;
   }
-  const forwarded = request.headers.get(SSR_ID_REQUEST_HEADER);
-  const ssrId = forwarded && isValidForwardedSsrId(forwarded) ? forwarded : createSsrId();
-  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  if (!shouldAllocateNewDevtoolsSsrId(pathname)) {
+    return null;
+  }
+  const ssrId = createSsrId();
+  applySsrIdToMiddlewareRequest(request, ssrId);
   return ssrId;
 }
 function setSsrIdOnMiddlewareResponse(response, ssrId) {
-  if (ssrId) {
-    response.headers.set(SSR_ID_HEADER, ssrId);
+  if (!ssrId) {
+    return;
   }
+  response.headers.set(SSR_ID_HEADER, ssrId);
+  if (response.cookies?.set) {
+    response.cookies.set(DEVTOOLS_SSR_ID_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+      sameSite: "lax",
+      httpOnly: true,
+      secure: typeof process !== "undefined" && process.env.NODE_ENV === "production"
+    });
+  }
+}
+function forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse) {
+  if (!ssrId) {
+    return response;
+  }
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(SSR_ID_REQUEST_HEADER, ssrId);
+  requestHeaders.set(SSR_ID_HEADER, ssrId);
+  const forwarded = NextResponse.next({
+    request: { headers: requestHeaders }
+  });
+  if (response.cookies?.getAll && forwarded.cookies?.set) {
+    for (const cookie of response.cookies.getAll()) {
+      const { name, value, ...options } = cookie;
+      forwarded.cookies.set(name, value, options);
+    }
+  }
+  if (typeof response.headers.forEach === "function") {
+    response.headers.forEach((value, key) => {
+      forwarded.headers.set(key, value);
+    });
+  }
+  setSsrIdOnMiddlewareResponse(forwarded, ssrId);
+  return forwarded;
 }
 function devtoolsSsrCorrelationMiddleware(request, NextResponse) {
   const ssrId = prepareDevtoolsSsrRequest(request);
@@ -296,8 +414,7 @@ function devtoolsSsrCorrelationMiddleware(request, NextResponse) {
     return NextResponse.next();
   }
   const response = NextResponse.next();
-  setSsrIdOnMiddlewareResponse(response, ssrId);
-  return response;
+  return forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse);
 }
 function createDevToolsConfigHandler(options = {}) {
   const configTtl = options.configTtl ?? DEVTOOLS_CONFIG_TTL;
@@ -532,6 +649,7 @@ function withDevtoolsSsrBridge(nextConfig = {}) {
 
 // src/react.ts
 var import_react = require("react");
+init_core();
 var ReactSsrDebugContext = (0, import_react.createContext)(null);
 function createReactSsrDebugValue(ssrId) {
   return {
@@ -808,6 +926,42 @@ function DevToolsSetupPopup(props) {
 }
 
 // src/instrument.ts
+init_core();
+
+// src/ssr-id-store.ts
+init_core();
+var activeSsrIdAls;
+function getAls() {
+  if (activeSsrIdAls !== void 0) {
+    return activeSsrIdAls;
+  }
+  if (typeof require === "undefined") {
+    activeSsrIdAls = null;
+    return null;
+  }
+  try {
+    const { AsyncLocalStorage } = require("async_hooks");
+    activeSsrIdAls = new AsyncLocalStorage();
+    return activeSsrIdAls;
+  } catch {
+    activeSsrIdAls = null;
+    return null;
+  }
+}
+function pinSsrIdForRequest(ssrId) {
+  if (!isValidForwardedSsrId(ssrId)) {
+    return;
+  }
+  getAls()?.enterWith(ssrId);
+}
+
+// src/instrument.ts
+var FORWARDED_SSR_HEADER_NAMES = [
+  SSR_ID_REQUEST_HEADER,
+  "x-ssr-id",
+  SSR_ID_HEADER,
+  "x-middleware-request-x-devtools-ssr-id"
+];
 var DEFAULT_ALLOWED_PATHS = ["/graphql", "/rest/V", "/rest/all/V", "/api/"];
 var BLOCKED_HEADER_NAMES = /* @__PURE__ */ new Set([
   "host",
@@ -845,6 +999,16 @@ async function establishRequestContextForDynamicApis() {
 function register() {
   debugLog("register() called");
   patchFetch();
+  if (typeof require !== "undefined") {
+    try {
+      const axiosModule = require("axios");
+      const axios = axiosModule.default ?? axiosModule;
+      patchAxios(axios);
+      patchAxiosCreate(axios);
+    } catch {
+      debugLog("register: axios not available to patch");
+    }
+  }
 }
 function patchFetch() {
   if (fetchPatched) {
@@ -877,6 +1041,17 @@ function patchFetch() {
   };
 }
 function patchAxiosDefault() {
+}
+function patchAxiosCreate(axiosModule) {
+  if (typeof axiosModule.create !== "function") {
+    return;
+  }
+  const originalCreate = axiosModule.create.bind(axiosModule);
+  axiosModule.create = (...args) => {
+    const instance = originalCreate(...args);
+    patchAxios(instance);
+    return instance;
+  };
 }
 function patchAxios(axiosInstance) {
   return axiosInstance.interceptors.request.use(
@@ -940,7 +1115,7 @@ async function readRequestContext() {
     if (!config) {
       return await tryEnvFallbackContext();
     }
-    const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+    const forwardedSsrId = await readCorrelatedSsrId(cookieStore);
     return { config, requestScopeKey: cookieStore, forwardedSsrId };
   } catch {
     debugLog("readRequestContext: outside next request context");
@@ -959,10 +1134,18 @@ async function tryEnvFallbackContext() {
     allowedPaths: [],
     createdAt: Date.now()
   };
-  const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+  const forwardedSsrId = await readCorrelatedSsrId();
   return { config, requestScopeKey: void 0, forwardedSsrId };
 }
-async function readForwardedSsrIdFromHeaders() {
+async function readCorrelatedSsrId(_cookieStore) {
+  try {
+    const mod = await Promise.resolve().then(() => (init_ssr_correlation(), ssr_correlation_exports));
+    const fromLayoutCache = await mod.readSsrIdFromAppRouterHeaders();
+    if (fromLayoutCache) {
+      return fromLayoutCache;
+    }
+  } catch {
+  }
   try {
     await establishRequestContextForDynamicApis();
     const { headers: headersFn } = safeRequire("next/headers");
@@ -970,9 +1153,12 @@ async function readForwardedSsrIdFromHeaders() {
     if (!store || typeof store !== "object" || typeof store.get !== "function") {
       return null;
     }
-    const raw = store.get(SSR_ID_REQUEST_HEADER);
-    if (raw && isValidForwardedSsrId(raw)) {
-      return raw;
+    const headerStore = store;
+    for (const name of FORWARDED_SSR_HEADER_NAMES) {
+      const raw = headerStore.get(name);
+      if (raw && isValidForwardedSsrId(raw)) {
+        return raw;
+      }
     }
   } catch {
   }
@@ -985,13 +1171,20 @@ function shouldInjectHeaders(url, config) {
   return paths.some((path) => requestPathname.startsWith(path));
 }
 function getOrCreateSsrId(requestScopeKey, forwardedSsrId) {
+  if (forwardedSsrId && isValidForwardedSsrId(forwardedSsrId)) {
+    if (requestScopeKey) {
+      requestScopedSsrIds.set(requestScopeKey, forwardedSsrId);
+    }
+    return forwardedSsrId;
+  }
   if (requestScopeKey && requestScopedSsrIds.has(requestScopeKey)) {
     return requestScopedSsrIds.get(requestScopeKey);
   }
-  const id = forwardedSsrId && isValidForwardedSsrId(forwardedSsrId) ? forwardedSsrId : createSsrId();
+  const id = createSsrId();
   if (requestScopeKey) {
     requestScopedSsrIds.set(requestScopeKey, id);
   }
+  debugLog("SSR id created without middleware header \u2014 check bindDevtoolsSsrCorrelation in root layout");
   return id;
 }
 function buildHeaders(config, ssrId) {
@@ -1046,6 +1239,9 @@ function debugLog(message, meta) {
   }
   console.log(`[devtools-ssr-bridge] ${message}`);
 }
+
+// src/index.ts
+init_ssr_correlation();
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS,
@@ -1056,12 +1252,14 @@ function debugLog(message, meta) {
   DEVTOOLS_CONFIG_TTL,
   DEVTOOLS_PROBE_COOKIE,
   DEVTOOLS_PROBE_TTL,
+  DEVTOOLS_SSR_ID_COOKIE,
   DevToolsSetupPopup,
   ReactSsrDebugContext,
   SSR_ID_HEADER,
   SSR_ID_REQUEST_HEADER,
   SSR_SOURCE_HEADER,
   attachSsrIdToNextResponse,
+  bindDevtoolsSsrCorrelation,
   buildDebugHeaders,
   createDebugFetch,
   createDevToolsConfigHandler,
@@ -1071,6 +1269,7 @@ function debugLog(message, meta) {
   createSsrId,
   deserializeDevToolsConfig,
   devtoolsSsrCorrelationMiddleware,
+  forwardDevtoolsSsrRequestToServer,
   getAutoDebugFetch,
   getDebugHeaders,
   handleDevToolsProbe,
@@ -1078,14 +1277,19 @@ function debugLog(message, meta) {
   isValidForwardedSsrId,
   mergeHeaders,
   patchAxios,
+  patchAxiosCreate,
   patchAxiosDefault,
   patchFetch,
+  pinSsrIdForRequest,
   prepareDevtoolsSsrRequest,
   readDevToolsConfig,
+  readSsrIdFromAppRouterHeaders,
   register,
   resolveDebugApiKey,
   serializeDevToolsConfig,
   setSsrIdOnMiddlewareResponse,
+  shouldAllocateNewDevtoolsSsrId,
+  shouldSkipDevtoolsSsrCorrelation,
   useDevToolsProbe,
   useSsrId,
   withDevToolsHeaders,

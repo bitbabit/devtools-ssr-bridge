@@ -8,4 +8,8 @@ export * from './extension-align';
 export * from './next';
 export * from './react';
 export * from './instrument';
+export {
+  bindDevtoolsSsrCorrelation,
+  readSsrIdFromAppRouterHeaders
+} from './ssr-correlation';
 

@@ -1,16 +1,22 @@
 import {
   getDebugHeaders,
   patchAxios,
+  patchAxiosCreate,
   patchAxiosDefault,
   patchFetch,
   register
-} from "./chunk-OUYSQ7WE.js";
-import "./chunk-SGMY5LZY.js";
+} from "./chunk-HMRQSX5S.js";
+import {
+  pinSsrIdForRequest
+} from "./chunk-VGQOXZUY.js";
+import "./chunk-DBLTRXN2.js";
 import "./chunk-3RG5ZIWI.js";
 export {
   getDebugHeaders,
   patchAxios,
+  patchAxiosCreate,
   patchAxiosDefault,
   patchFetch,
+  pinSsrIdForRequest,
   register
 };

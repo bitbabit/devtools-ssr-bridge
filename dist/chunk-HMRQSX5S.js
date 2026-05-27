@@ -8,12 +8,18 @@ import {
   createSsrId,
   deserializeDevToolsConfig,
   isValidForwardedSsrId
-} from "./chunk-SGMY5LZY.js";
+} from "./chunk-DBLTRXN2.js";
 import {
   __require
 } from "./chunk-3RG5ZIWI.js";
 
 // src/instrument.ts
+var FORWARDED_SSR_HEADER_NAMES = [
+  SSR_ID_REQUEST_HEADER,
+  "x-ssr-id",
+  SSR_ID_HEADER,
+  "x-middleware-request-x-devtools-ssr-id"
+];
 var DEFAULT_ALLOWED_PATHS = ["/graphql", "/rest/V", "/rest/all/V", "/api/"];
 var BLOCKED_HEADER_NAMES = /* @__PURE__ */ new Set([
   "host",
@@ -51,6 +57,16 @@ async function establishRequestContextForDynamicApis() {
 function register() {
   debugLog("register() called");
   patchFetch();
+  if (typeof __require !== "undefined") {
+    try {
+      const axiosModule = __require("axios");
+      const axios = axiosModule.default ?? axiosModule;
+      patchAxios(axios);
+      patchAxiosCreate(axios);
+    } catch {
+      debugLog("register: axios not available to patch");
+    }
+  }
 }
 function patchFetch() {
   if (fetchPatched) {
@@ -83,6 +99,17 @@ function patchFetch() {
   };
 }
 function patchAxiosDefault() {
+}
+function patchAxiosCreate(axiosModule) {
+  if (typeof axiosModule.create !== "function") {
+    return;
+  }
+  const originalCreate = axiosModule.create.bind(axiosModule);
+  axiosModule.create = (...args) => {
+    const instance = originalCreate(...args);
+    patchAxios(instance);
+    return instance;
+  };
 }
 function patchAxios(axiosInstance) {
   return axiosInstance.interceptors.request.use(
@@ -146,7 +173,7 @@ async function readRequestContext() {
     if (!config) {
       return await tryEnvFallbackContext();
     }
-    const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+    const forwardedSsrId = await readCorrelatedSsrId(cookieStore);
     return { config, requestScopeKey: cookieStore, forwardedSsrId };
   } catch {
     debugLog("readRequestContext: outside next request context");
@@ -165,10 +192,18 @@ async function tryEnvFallbackContext() {
     allowedPaths: [],
     createdAt: Date.now()
   };
-  const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+  const forwardedSsrId = await readCorrelatedSsrId();
   return { config, requestScopeKey: void 0, forwardedSsrId };
 }
-async function readForwardedSsrIdFromHeaders() {
+async function readCorrelatedSsrId(_cookieStore) {
+  try {
+    const mod = await import("./ssr-correlation.js");
+    const fromLayoutCache = await mod.readSsrIdFromAppRouterHeaders();
+    if (fromLayoutCache) {
+      return fromLayoutCache;
+    }
+  } catch {
+  }
   try {
     await establishRequestContextForDynamicApis();
     const { headers: headersFn } = safeRequire("next/headers");
@@ -176,9 +211,12 @@ async function readForwardedSsrIdFromHeaders() {
     if (!store || typeof store !== "object" || typeof store.get !== "function") {
       return null;
     }
-    const raw = store.get(SSR_ID_REQUEST_HEADER);
-    if (raw && isValidForwardedSsrId(raw)) {
-      return raw;
+    const headerStore = store;
+    for (const name of FORWARDED_SSR_HEADER_NAMES) {
+      const raw = headerStore.get(name);
+      if (raw && isValidForwardedSsrId(raw)) {
+        return raw;
+      }
     }
   } catch {
   }
@@ -191,13 +229,20 @@ function shouldInjectHeaders(url, config) {
   return paths.some((path) => requestPathname.startsWith(path));
 }
 function getOrCreateSsrId(requestScopeKey, forwardedSsrId) {
+  if (forwardedSsrId && isValidForwardedSsrId(forwardedSsrId)) {
+    if (requestScopeKey) {
+      requestScopedSsrIds.set(requestScopeKey, forwardedSsrId);
+    }
+    return forwardedSsrId;
+  }
   if (requestScopeKey && requestScopedSsrIds.has(requestScopeKey)) {
     return requestScopedSsrIds.get(requestScopeKey);
   }
-  const id = forwardedSsrId && isValidForwardedSsrId(forwardedSsrId) ? forwardedSsrId : createSsrId();
+  const id = createSsrId();
   if (requestScopeKey) {
     requestScopedSsrIds.set(requestScopeKey, id);
   }
+  debugLog("SSR id created without middleware header \u2014 check bindDevtoolsSsrCorrelation in root layout");
   return id;
 }
 function buildHeaders(config, ssrId) {
@@ -257,6 +302,7 @@ export {
   register,
   patchFetch,
   patchAxiosDefault,
+  patchAxiosCreate,
   patchAxios,
   getDebugHeaders
 };

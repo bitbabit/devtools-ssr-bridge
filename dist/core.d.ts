@@ -23,6 +23,12 @@ declare const DEVTOOLS_PROBE_COOKIE = "__devtools_probe";
  * popup writes it via the config API route.
  */
 declare const DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
+/**
+ * httpOnly cookie mirroring the active SSR correlation ID for this browser
+ * session. Set by middleware together with `X-SSR-ID` so parallel RSC/axios
+ * calls read the same id via `cookies()` on the Node server.
+ */
+declare const DEVTOOLS_SSR_ID_COOKIE = "__devtools_ssr_id";
 /** Default TTL for the probe cookie in seconds (5 minutes). */
 declare const DEVTOOLS_PROBE_TTL = 300;
 /** Default TTL for the config cookie in seconds (6 hours; aligned with Chrome extension). */
@@ -115,4 +121,4 @@ type DebugFetch = (input: RequestInfo | URL, init?: DebugFetchInit) => Promise<R
  */
 declare function createDebugFetch(fetchImpl: typeof fetch, config: SsrDebugFetchOptions): DebugFetch;
 
-export { type ApiKeyResolvable, DEBUG_API_KEY_HEADER, DEBUG_MODE_HEADER, DEVTOOLS_CONFIG_COOKIE, DEVTOOLS_CONFIG_TTL, DEVTOOLS_PROBE_COOKIE, DEVTOOLS_PROBE_TTL, type DebugFetch, type DebugFetchInit, type DebugHeaderOptions, type DevToolsConfig, SSR_ID_HEADER, SSR_ID_REQUEST_HEADER, SSR_SOURCE_HEADER, type SsrDebugFetchOptions, buildDebugHeaders, createDebugFetch, createSsrId, deserializeDevToolsConfig, isValidForwardedSsrId, mergeHeaders, resolveDebugApiKey, serializeDevToolsConfig };
+export { type ApiKeyResolvable, DEBUG_API_KEY_HEADER, DEBUG_MODE_HEADER, DEVTOOLS_CONFIG_COOKIE, DEVTOOLS_CONFIG_TTL, DEVTOOLS_PROBE_COOKIE, DEVTOOLS_PROBE_TTL, DEVTOOLS_SSR_ID_COOKIE, type DebugFetch, type DebugFetchInit, type DebugHeaderOptions, type DevToolsConfig, SSR_ID_HEADER, SSR_ID_REQUEST_HEADER, SSR_SOURCE_HEADER, type SsrDebugFetchOptions, buildDebugHeaders, createDebugFetch, createSsrId, deserializeDevToolsConfig, isValidForwardedSsrId, mergeHeaders, resolveDebugApiKey, serializeDevToolsConfig };

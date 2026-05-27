@@ -25,12 +25,15 @@ __export(next_exports, {
   createNextSsrContext: () => createNextSsrContext,
   createSsrContextFromCookies: () => createSsrContextFromCookies,
   devtoolsSsrCorrelationMiddleware: () => devtoolsSsrCorrelationMiddleware,
+  forwardDevtoolsSsrRequestToServer: () => forwardDevtoolsSsrRequestToServer,
   getAutoDebugFetch: () => getAutoDebugFetch,
   handleDevToolsProbe: () => handleDevToolsProbe,
   hasDevToolsProbe: () => hasDevToolsProbe,
   prepareDevtoolsSsrRequest: () => prepareDevtoolsSsrRequest,
   readDevToolsConfig: () => readDevToolsConfig,
   setSsrIdOnMiddlewareResponse: () => setSsrIdOnMiddlewareResponse,
+  shouldAllocateNewDevtoolsSsrId: () => shouldAllocateNewDevtoolsSsrId,
+  shouldSkipDevtoolsSsrCorrelation: () => shouldSkipDevtoolsSsrCorrelation,
   withDevToolsHeaders: () => withDevToolsHeaders,
   withDevtoolsSsrBridge: () => withDevtoolsSsrBridge
 });
@@ -44,6 +47,7 @@ var DEBUG_API_KEY_HEADER = "X-Debug-Api-Key";
 var SSR_SOURCE_HEADER = "X-SSR-Source";
 var DEVTOOLS_PROBE_COOKIE = "__devtools_probe";
 var DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
+var DEVTOOLS_SSR_ID_COOKIE = "__devtools_ssr_id";
 var DEVTOOLS_PROBE_TTL = 300;
 var DEVTOOLS_CONFIG_TTL = 6 * 60 * 60;
 var MAX_API_KEY_LENGTH = 512;
@@ -129,12 +133,6 @@ function createSsrId() {
     return globalThis.crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-function isValidForwardedSsrId(id) {
-  if (id === "" || id.length > 128) {
-    return false;
-  }
-  return /^[a-zA-Z0-9._:-]+$/.test(id);
 }
 function buildDebugHeaders(options) {
   const enabled = options.enabled ?? true;
@@ -224,19 +222,76 @@ function handleDevToolsProbe(request, response, options = {}) {
   });
   return true;
 }
-function prepareDevtoolsSsrRequest(request) {
+function shouldSkipDevtoolsSsrCorrelation(pathname) {
+  const path = pathname.toLowerCase();
+  return path.includes("com.chrome.devtools.json") || path.includes("/.well-known/appspecific/");
+}
+function shouldAllocateNewDevtoolsSsrId(pathname) {
+  if (!pathname || shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return false;
+  }
+  if (pathname.startsWith("/_next") || pathname.startsWith("/api")) {
+    return false;
+  }
+  return true;
+}
+function applySsrIdToMiddlewareRequest(request, ssrId) {
+  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  request.headers.set(SSR_ID_HEADER, ssrId);
+}
+function prepareDevtoolsSsrRequest(request, options = {}) {
+  const pathname = options.pathname ?? "";
+  if (pathname && shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return null;
+  }
   if (!request.cookies.get(DEVTOOLS_CONFIG_COOKIE)?.value?.trim()) {
     return null;
   }
-  const forwarded = request.headers.get(SSR_ID_REQUEST_HEADER);
-  const ssrId = forwarded && isValidForwardedSsrId(forwarded) ? forwarded : createSsrId();
-  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  if (!shouldAllocateNewDevtoolsSsrId(pathname)) {
+    return null;
+  }
+  const ssrId = createSsrId();
+  applySsrIdToMiddlewareRequest(request, ssrId);
   return ssrId;
 }
 function setSsrIdOnMiddlewareResponse(response, ssrId) {
-  if (ssrId) {
-    response.headers.set(SSR_ID_HEADER, ssrId);
+  if (!ssrId) {
+    return;
   }
+  response.headers.set(SSR_ID_HEADER, ssrId);
+  if (response.cookies?.set) {
+    response.cookies.set(DEVTOOLS_SSR_ID_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+      sameSite: "lax",
+      httpOnly: true,
+      secure: typeof process !== "undefined" && process.env.NODE_ENV === "production"
+    });
+  }
+}
+function forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse) {
+  if (!ssrId) {
+    return response;
+  }
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(SSR_ID_REQUEST_HEADER, ssrId);
+  requestHeaders.set(SSR_ID_HEADER, ssrId);
+  const forwarded = NextResponse.next({
+    request: { headers: requestHeaders }
+  });
+  if (response.cookies?.getAll && forwarded.cookies?.set) {
+    for (const cookie of response.cookies.getAll()) {
+      const { name, value, ...options } = cookie;
+      forwarded.cookies.set(name, value, options);
+    }
+  }
+  if (typeof response.headers.forEach === "function") {
+    response.headers.forEach((value, key) => {
+      forwarded.headers.set(key, value);
+    });
+  }
+  setSsrIdOnMiddlewareResponse(forwarded, ssrId);
+  return forwarded;
 }
 function devtoolsSsrCorrelationMiddleware(request, NextResponse) {
   const ssrId = prepareDevtoolsSsrRequest(request);
@@ -244,8 +299,7 @@ function devtoolsSsrCorrelationMiddleware(request, NextResponse) {
     return NextResponse.next();
   }
   const response = NextResponse.next();
-  setSsrIdOnMiddlewareResponse(response, ssrId);
-  return response;
+  return forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse);
 }
 function createDevToolsConfigHandler(options = {}) {
   const configTtl = options.configTtl ?? DEVTOOLS_CONFIG_TTL;
@@ -484,12 +538,15 @@ function withDevtoolsSsrBridge(nextConfig = {}) {
   createNextSsrContext,
   createSsrContextFromCookies,
   devtoolsSsrCorrelationMiddleware,
+  forwardDevtoolsSsrRequestToServer,
   getAutoDebugFetch,
   handleDevToolsProbe,
   hasDevToolsProbe,
   prepareDevtoolsSsrRequest,
   readDevToolsConfig,
   setSsrIdOnMiddlewareResponse,
+  shouldAllocateNewDevtoolsSsrId,
+  shouldSkipDevtoolsSsrCorrelation,
   withDevToolsHeaders,
   withDevtoolsSsrBridge
 });

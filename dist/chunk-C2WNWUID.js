@@ -1,7 +1,7 @@
 import {
   DEVTOOLS_PROBE_COOKIE,
   createSsrId
-} from "./chunk-SGMY5LZY.js";
+} from "./chunk-DBLTRXN2.js";
 
 // src/react.ts
 import {

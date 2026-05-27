@@ -5,16 +5,16 @@ import {
   DEVTOOLS_CONFIG_TTL,
   DEVTOOLS_PROBE_COOKIE,
   DEVTOOLS_PROBE_TTL,
+  DEVTOOLS_SSR_ID_COOKIE,
   SSR_ID_HEADER,
   SSR_ID_REQUEST_HEADER,
   SSR_SOURCE_HEADER,
   createDebugFetch,
   createSsrId,
   deserializeDevToolsConfig,
-  isValidForwardedSsrId,
   resolveDebugApiKey,
   serializeDevToolsConfig
-} from "./chunk-SGMY5LZY.js";
+} from "./chunk-DBLTRXN2.js";
 
 // src/next.ts
 function createNextSsrContext(config = {}) {
@@ -66,19 +66,76 @@ function handleDevToolsProbe(request, response, options = {}) {
   });
   return true;
 }
-function prepareDevtoolsSsrRequest(request) {
+function shouldSkipDevtoolsSsrCorrelation(pathname) {
+  const path = pathname.toLowerCase();
+  return path.includes("com.chrome.devtools.json") || path.includes("/.well-known/appspecific/");
+}
+function shouldAllocateNewDevtoolsSsrId(pathname) {
+  if (!pathname || shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return false;
+  }
+  if (pathname.startsWith("/_next") || pathname.startsWith("/api")) {
+    return false;
+  }
+  return true;
+}
+function applySsrIdToMiddlewareRequest(request, ssrId) {
+  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  request.headers.set(SSR_ID_HEADER, ssrId);
+}
+function prepareDevtoolsSsrRequest(request, options = {}) {
+  const pathname = options.pathname ?? "";
+  if (pathname && shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return null;
+  }
   if (!request.cookies.get(DEVTOOLS_CONFIG_COOKIE)?.value?.trim()) {
     return null;
   }
-  const forwarded = request.headers.get(SSR_ID_REQUEST_HEADER);
-  const ssrId = forwarded && isValidForwardedSsrId(forwarded) ? forwarded : createSsrId();
-  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  if (!shouldAllocateNewDevtoolsSsrId(pathname)) {
+    return null;
+  }
+  const ssrId = createSsrId();
+  applySsrIdToMiddlewareRequest(request, ssrId);
   return ssrId;
 }
 function setSsrIdOnMiddlewareResponse(response, ssrId) {
-  if (ssrId) {
-    response.headers.set(SSR_ID_HEADER, ssrId);
+  if (!ssrId) {
+    return;
   }
+  response.headers.set(SSR_ID_HEADER, ssrId);
+  if (response.cookies?.set) {
+    response.cookies.set(DEVTOOLS_SSR_ID_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+      sameSite: "lax",
+      httpOnly: true,
+      secure: typeof process !== "undefined" && process.env.NODE_ENV === "production"
+    });
+  }
+}
+function forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse) {
+  if (!ssrId) {
+    return response;
+  }
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(SSR_ID_REQUEST_HEADER, ssrId);
+  requestHeaders.set(SSR_ID_HEADER, ssrId);
+  const forwarded = NextResponse.next({
+    request: { headers: requestHeaders }
+  });
+  if (response.cookies?.getAll && forwarded.cookies?.set) {
+    for (const cookie of response.cookies.getAll()) {
+      const { name, value, ...options } = cookie;
+      forwarded.cookies.set(name, value, options);
+    }
+  }
+  if (typeof response.headers.forEach === "function") {
+    response.headers.forEach((value, key) => {
+      forwarded.headers.set(key, value);
+    });
+  }
+  setSsrIdOnMiddlewareResponse(forwarded, ssrId);
+  return forwarded;
 }
 function devtoolsSsrCorrelationMiddleware(request, NextResponse) {
   const ssrId = prepareDevtoolsSsrRequest(request);
@@ -86,8 +143,7 @@ function devtoolsSsrCorrelationMiddleware(request, NextResponse) {
     return NextResponse.next();
   }
   const response = NextResponse.next();
-  setSsrIdOnMiddlewareResponse(response, ssrId);
-  return response;
+  return forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse);
 }
 function createDevToolsConfigHandler(options = {}) {
   const configTtl = options.configTtl ?? DEVTOOLS_CONFIG_TTL;
@@ -324,8 +380,11 @@ export {
   createNextSsrContext,
   attachSsrIdToNextResponse,
   handleDevToolsProbe,
+  shouldSkipDevtoolsSsrCorrelation,
+  shouldAllocateNewDevtoolsSsrId,
   prepareDevtoolsSsrRequest,
   setSsrIdOnMiddlewareResponse,
+  forwardDevtoolsSsrRequestToServer,
   devtoolsSsrCorrelationMiddleware,
   createDevToolsConfigHandler,
   readDevToolsConfig,

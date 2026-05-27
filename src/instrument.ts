@@ -32,6 +32,15 @@ import {
   SSR_SOURCE_HEADER
 } from './core';
 
+export { pinSsrIdForRequest } from './ssr-id-store';
+
+const FORWARDED_SSR_HEADER_NAMES = [
+  SSR_ID_REQUEST_HEADER,
+  'x-ssr-id',
+  SSR_ID_HEADER,
+  'x-middleware-request-x-devtools-ssr-id'
+] as const;
+
 const DEFAULT_ALLOWED_PATHS = ['/graphql', '/rest/V', '/rest/all/V', '/api/'];
 const BLOCKED_HEADER_NAMES = new Set([
   'host',
@@ -85,6 +94,20 @@ async function establishRequestContextForDynamicApis(): Promise<void> {
 export function register(): void {
   debugLog('register() called');
   patchFetch();
+
+  if (typeof require !== 'undefined') {
+    try {
+      const axiosModule = (require as NodeJS.Require)('axios') as AxiosLike & {
+        default?: AxiosLike & { create?: (...args: unknown[]) => AxiosLike };
+        create?: (...args: unknown[]) => AxiosLike;
+      };
+      const axios = axiosModule.default ?? axiosModule;
+      patchAxios(axios);
+      patchAxiosCreate(axios);
+    } catch {
+      debugLog('register: axios not available to patch');
+    }
+  }
 }
 
 export function patchFetch(): void {
@@ -135,6 +158,22 @@ export function patchFetch(): void {
  */
 export function patchAxiosDefault(): void {
   // Intentionally empty — webpack-bundled axios is not reachable via Module._load.
+}
+
+/**
+ * Wraps `axios.create()` so every instance gets SSR/debug interceptors.
+ */
+export function patchAxiosCreate(axiosModule: AxiosLike & { create?: (...args: unknown[]) => AxiosLike }): void {
+  if (typeof axiosModule.create !== 'function') {
+    return;
+  }
+
+  const originalCreate = axiosModule.create.bind(axiosModule);
+  axiosModule.create = (...args: unknown[]) => {
+    const instance = originalCreate(...args);
+    patchAxios(instance);
+    return instance;
+  };
 }
 
 export function patchAxios(axiosInstance: AxiosLike): number {
@@ -239,7 +278,9 @@ async function readRequestContext(): Promise<{
       return await tryEnvFallbackContext();
     }
 
-    const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+    const forwardedSsrId = await readCorrelatedSsrId(cookieStore as {
+      get: (name: string) => { value: string } | undefined;
+    });
     return { config, requestScopeKey: cookieStore as object, forwardedSsrId };
   } catch {
     debugLog('readRequestContext: outside next request context');
@@ -265,11 +306,23 @@ async function tryEnvFallbackContext(): Promise<{
     allowedPaths: [],
     createdAt: Date.now()
   };
-  const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+  const forwardedSsrId = await readCorrelatedSsrId();
   return { config, requestScopeKey: undefined, forwardedSsrId };
 }
 
-async function readForwardedSsrIdFromHeaders(): Promise<string | null> {
+async function readCorrelatedSsrId(
+  _cookieStore?: { get: (name: string) => { value: string } | undefined }
+): Promise<string | null> {
+  try {
+    const mod = await import('./ssr-correlation');
+    const fromLayoutCache = await mod.readSsrIdFromAppRouterHeaders();
+    if (fromLayoutCache) {
+      return fromLayoutCache;
+    }
+  } catch {
+    // outside App Router / ssr-correlation not loaded
+  }
+
   try {
     await establishRequestContextForDynamicApis();
     const { headers: headersFn } = safeRequire('next/headers') as { headers: () => unknown };
@@ -277,9 +330,12 @@ async function readForwardedSsrIdFromHeaders(): Promise<string | null> {
     if (!store || typeof store !== 'object' || typeof (store as { get?: unknown }).get !== 'function') {
       return null;
     }
-    const raw = (store as { get: (name: string) => string | null | undefined }).get(SSR_ID_REQUEST_HEADER);
-    if (raw && isValidForwardedSsrId(raw)) {
-      return raw;
+    const headerStore = store as { get: (name: string) => string | null | undefined };
+    for (const name of FORWARDED_SSR_HEADER_NAMES) {
+      const raw = headerStore.get(name);
+      if (raw && isValidForwardedSsrId(raw)) {
+        return raw;
+      }
     }
   } catch {
     // ignore
@@ -296,15 +352,22 @@ function shouldInjectHeaders(url: string, config: DevToolsConfig): boolean {
 }
 
 function getOrCreateSsrId(requestScopeKey: object | undefined, forwardedSsrId: string | null): string {
+  if (forwardedSsrId && isValidForwardedSsrId(forwardedSsrId)) {
+    if (requestScopeKey) {
+      requestScopedSsrIds.set(requestScopeKey, forwardedSsrId);
+    }
+    return forwardedSsrId;
+  }
+
   if (requestScopeKey && requestScopedSsrIds.has(requestScopeKey)) {
     return requestScopedSsrIds.get(requestScopeKey)!;
   }
 
-  const id =
-    forwardedSsrId && isValidForwardedSsrId(forwardedSsrId) ? forwardedSsrId : createSsrId();
+  const id = createSsrId();
   if (requestScopeKey) {
     requestScopedSsrIds.set(requestScopeKey, id);
   }
+  debugLog('SSR id created without middleware header — check bindDevtoolsSsrCorrelation in root layout');
   return id;
 }
 

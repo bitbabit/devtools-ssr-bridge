@@ -6,6 +6,7 @@ var DEBUG_API_KEY_HEADER = "X-Debug-Api-Key";
 var SSR_SOURCE_HEADER = "X-SSR-Source";
 var DEVTOOLS_PROBE_COOKIE = "__devtools_probe";
 var DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
+var DEVTOOLS_SSR_ID_COOKIE = "__devtools_ssr_id";
 var DEVTOOLS_PROBE_TTL = 300;
 var DEVTOOLS_CONFIG_TTL = 6 * 60 * 60;
 var MAX_API_KEY_LENGTH = 512;
@@ -144,6 +145,7 @@ export {
   SSR_SOURCE_HEADER,
   DEVTOOLS_PROBE_COOKIE,
   DEVTOOLS_CONFIG_COOKIE,
+  DEVTOOLS_SSR_ID_COOKIE,
   DEVTOOLS_PROBE_TTL,
   DEVTOOLS_CONFIG_TTL,
   serializeDevToolsConfig,

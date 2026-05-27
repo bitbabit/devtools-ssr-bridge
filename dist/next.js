@@ -4,16 +4,19 @@ import {
   createNextSsrContext,
   createSsrContextFromCookies,
   devtoolsSsrCorrelationMiddleware,
+  forwardDevtoolsSsrRequestToServer,
   getAutoDebugFetch,
   handleDevToolsProbe,
   hasDevToolsProbe,
   prepareDevtoolsSsrRequest,
   readDevToolsConfig,
   setSsrIdOnMiddlewareResponse,
+  shouldAllocateNewDevtoolsSsrId,
+  shouldSkipDevtoolsSsrCorrelation,
   withDevToolsHeaders,
   withDevtoolsSsrBridge
-} from "./chunk-3J422CHI.js";
-import "./chunk-SGMY5LZY.js";
+} from "./chunk-ILOEQVTF.js";
+import "./chunk-DBLTRXN2.js";
 import "./chunk-3RG5ZIWI.js";
 export {
   attachSsrIdToNextResponse,
@@ -21,12 +24,15 @@ export {
   createNextSsrContext,
   createSsrContextFromCookies,
   devtoolsSsrCorrelationMiddleware,
+  forwardDevtoolsSsrRequestToServer,
   getAutoDebugFetch,
   handleDevToolsProbe,
   hasDevToolsProbe,
   prepareDevtoolsSsrRequest,
   readDevToolsConfig,
   setSsrIdOnMiddlewareResponse,
+  shouldAllocateNewDevtoolsSsrId,
+  shouldSkipDevtoolsSsrCorrelation,
   withDevToolsHeaders,
   withDevtoolsSsrBridge
 };

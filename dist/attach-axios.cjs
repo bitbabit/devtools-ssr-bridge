@@ -3,6 +3,9 @@ var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -17,26 +20,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/attach-axios.ts
-var attach_axios_exports = {};
-__export(attach_axios_exports, {
-  attachAxiosSsrDevtools: () => attachAxiosSsrDevtools,
-  patchAxios: () => patchAxios
-});
-module.exports = __toCommonJS(attach_axios_exports);
-
 // src/core.ts
-var SSR_ID_HEADER = "X-SSR-ID";
-var SSR_ID_REQUEST_HEADER = "x-devtools-ssr-id";
-var DEBUG_MODE_HEADER = "X-Debug-Mode";
-var DEBUG_API_KEY_HEADER = "X-Debug-Api-Key";
-var SSR_SOURCE_HEADER = "X-SSR-Source";
-var DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
-var DEVTOOLS_CONFIG_TTL = 6 * 60 * 60;
-var MAX_API_KEY_LENGTH = 512;
-var MAX_CUSTOM_HEADER_COUNT = 32;
-var MAX_ALLOWED_PATH_COUNT = 32;
-var HEADER_NAME_TOKEN_REGEX = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 function deserializeDevToolsConfig(raw) {
   if (!raw) {
     return null;
@@ -113,8 +97,86 @@ function isValidForwardedSsrId(id) {
   }
   return /^[a-zA-Z0-9._:-]+$/.test(id);
 }
+var SSR_ID_HEADER, SSR_ID_REQUEST_HEADER, DEBUG_MODE_HEADER, DEBUG_API_KEY_HEADER, SSR_SOURCE_HEADER, DEVTOOLS_CONFIG_COOKIE, DEVTOOLS_CONFIG_TTL, MAX_API_KEY_LENGTH, MAX_CUSTOM_HEADER_COUNT, MAX_ALLOWED_PATH_COUNT, HEADER_NAME_TOKEN_REGEX;
+var init_core = __esm({
+  "src/core.ts"() {
+    "use strict";
+    SSR_ID_HEADER = "X-SSR-ID";
+    SSR_ID_REQUEST_HEADER = "x-devtools-ssr-id";
+    DEBUG_MODE_HEADER = "X-Debug-Mode";
+    DEBUG_API_KEY_HEADER = "X-Debug-Api-Key";
+    SSR_SOURCE_HEADER = "X-SSR-Source";
+    DEVTOOLS_CONFIG_COOKIE = "__devtools_config";
+    DEVTOOLS_CONFIG_TTL = 6 * 60 * 60;
+    MAX_API_KEY_LENGTH = 512;
+    MAX_CUSTOM_HEADER_COUNT = 32;
+    MAX_ALLOWED_PATH_COUNT = 32;
+    HEADER_NAME_TOKEN_REGEX = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+  }
+});
+
+// src/ssr-correlation.ts
+var ssr_correlation_exports = {};
+__export(ssr_correlation_exports, {
+  bindDevtoolsSsrCorrelation: () => bindDevtoolsSsrCorrelation,
+  readSsrIdFromAppRouterHeaders: () => readSsrIdFromAppRouterHeaders
+});
+var import_react, MIDDLEWARE_SSR_HEADER_NAMES, readSsrIdFromAppRouterHeaders, bindDevtoolsSsrCorrelation;
+var init_ssr_correlation = __esm({
+  "src/ssr-correlation.ts"() {
+    "use strict";
+    import_react = require("react");
+    init_core();
+    MIDDLEWARE_SSR_HEADER_NAMES = [
+      SSR_ID_REQUEST_HEADER,
+      "x-ssr-id",
+      SSR_ID_HEADER,
+      "x-middleware-request-x-devtools-ssr-id"
+    ];
+    readSsrIdFromAppRouterHeaders = (0, import_react.cache)(async () => {
+      try {
+        if (typeof require === "undefined") {
+          return null;
+        }
+        const { headers: headersFn } = require("next/headers");
+        const store = await Promise.resolve(headersFn());
+        for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
+          const raw = store.get(name);
+          if (raw && isValidForwardedSsrId(raw)) {
+            return raw;
+          }
+        }
+      } catch {
+      }
+      return null;
+    });
+    bindDevtoolsSsrCorrelation = (0, import_react.cache)(async () => {
+      return readSsrIdFromAppRouterHeaders();
+    });
+  }
+});
+
+// src/attach-axios.ts
+var attach_axios_exports = {};
+__export(attach_axios_exports, {
+  attachAxiosSsrDevtools: () => attachAxiosSsrDevtools,
+  patchAxios: () => patchAxios
+});
+module.exports = __toCommonJS(attach_axios_exports);
 
 // src/instrument.ts
+init_core();
+
+// src/ssr-id-store.ts
+init_core();
+
+// src/instrument.ts
+var FORWARDED_SSR_HEADER_NAMES = [
+  SSR_ID_REQUEST_HEADER,
+  "x-ssr-id",
+  SSR_ID_HEADER,
+  "x-middleware-request-x-devtools-ssr-id"
+];
 var DEFAULT_ALLOWED_PATHS = ["/graphql", "/rest/V", "/rest/all/V", "/api/"];
 var BLOCKED_HEADER_NAMES = /* @__PURE__ */ new Set([
   "host",
@@ -196,7 +258,7 @@ async function readRequestContext() {
     if (!config) {
       return await tryEnvFallbackContext();
     }
-    const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+    const forwardedSsrId = await readCorrelatedSsrId(cookieStore);
     return { config, requestScopeKey: cookieStore, forwardedSsrId };
   } catch {
     debugLog("readRequestContext: outside next request context");
@@ -215,10 +277,18 @@ async function tryEnvFallbackContext() {
     allowedPaths: [],
     createdAt: Date.now()
   };
-  const forwardedSsrId = await readForwardedSsrIdFromHeaders();
+  const forwardedSsrId = await readCorrelatedSsrId();
   return { config, requestScopeKey: void 0, forwardedSsrId };
 }
-async function readForwardedSsrIdFromHeaders() {
+async function readCorrelatedSsrId(_cookieStore) {
+  try {
+    const mod = await Promise.resolve().then(() => (init_ssr_correlation(), ssr_correlation_exports));
+    const fromLayoutCache = await mod.readSsrIdFromAppRouterHeaders();
+    if (fromLayoutCache) {
+      return fromLayoutCache;
+    }
+  } catch {
+  }
   try {
     await establishRequestContextForDynamicApis();
     const { headers: headersFn } = safeRequire("next/headers");
@@ -226,9 +296,12 @@ async function readForwardedSsrIdFromHeaders() {
     if (!store || typeof store !== "object" || typeof store.get !== "function") {
       return null;
     }
-    const raw = store.get(SSR_ID_REQUEST_HEADER);
-    if (raw && isValidForwardedSsrId(raw)) {
-      return raw;
+    const headerStore = store;
+    for (const name of FORWARDED_SSR_HEADER_NAMES) {
+      const raw = headerStore.get(name);
+      if (raw && isValidForwardedSsrId(raw)) {
+        return raw;
+      }
     }
   } catch {
   }
@@ -241,13 +314,20 @@ function shouldInjectHeaders(url, config) {
   return paths.some((path) => requestPathname.startsWith(path));
 }
 function getOrCreateSsrId(requestScopeKey, forwardedSsrId) {
+  if (forwardedSsrId && isValidForwardedSsrId(forwardedSsrId)) {
+    if (requestScopeKey) {
+      requestScopedSsrIds.set(requestScopeKey, forwardedSsrId);
+    }
+    return forwardedSsrId;
+  }
   if (requestScopeKey && requestScopedSsrIds.has(requestScopeKey)) {
     return requestScopedSsrIds.get(requestScopeKey);
   }
-  const id = forwardedSsrId && isValidForwardedSsrId(forwardedSsrId) ? forwardedSsrId : createSsrId();
+  const id = createSsrId();
   if (requestScopeKey) {
     requestScopedSsrIds.set(requestScopeKey, id);
   }
+  debugLog("SSR id created without middleware header \u2014 check bindDevtoolsSsrCorrelation in root layout");
   return id;
 }
 function buildHeaders(config, ssrId) {

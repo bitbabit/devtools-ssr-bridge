@@ -5,6 +5,7 @@ import {
   DEVTOOLS_CONFIG_TTL,
   DEVTOOLS_PROBE_COOKIE,
   DEVTOOLS_PROBE_TTL,
+  DEVTOOLS_SSR_ID_COOKIE,
   SSR_ID_HEADER,
   SSR_ID_REQUEST_HEADER,
   SSR_SOURCE_HEADER,
@@ -16,7 +17,7 @@ import {
   mergeHeaders,
   resolveDebugApiKey,
   serializeDevToolsConfig
-} from "./chunk-SGMY5LZY.js";
+} from "./chunk-DBLTRXN2.js";
 import "./chunk-3RG5ZIWI.js";
 export {
   DEBUG_API_KEY_HEADER,
@@ -25,6 +26,7 @@ export {
   DEVTOOLS_CONFIG_TTL,
   DEVTOOLS_PROBE_COOKIE,
   DEVTOOLS_PROBE_TTL,
+  DEVTOOLS_SSR_ID_COOKIE,
   SSR_ID_HEADER,
   SSR_ID_REQUEST_HEADER,
   SSR_SOURCE_HEADER,

@@ -9,6 +9,7 @@ import {
   DEVTOOLS_CONFIG_TTL,
   DEVTOOLS_PROBE_COOKIE,
   DEVTOOLS_PROBE_TTL,
+  DEVTOOLS_SSR_ID_COOKIE,
   deserializeDevToolsConfig,
   isValidForwardedSsrId,
   resolveDebugApiKey,
@@ -209,6 +210,38 @@ interface CorrelationNextResponse {
 }
 
 /**
+ * Paths that trigger extra middleware/SSR work but are not the storefront document.
+ * Correlating them produces a second `X-SSR-ID` (e.g. Chrome `com.chrome.devtools.json`)
+ * while the extension reads the id from the HTML response — ids then diverge from Magento.
+ */
+export function shouldSkipDevtoolsSsrCorrelation(pathname: string): boolean {
+  const path = pathname.toLowerCase();
+  return (
+    path.includes('com.chrome.devtools.json') ||
+    path.includes('/.well-known/appspecific/')
+  );
+}
+
+/** Only the storefront document should mint a brand-new SSR id when no cookie exists yet. */
+export function shouldAllocateNewDevtoolsSsrId(pathname: string): boolean {
+  if (!pathname || shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return false;
+  }
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
+    return false;
+  }
+  return true;
+}
+
+function applySsrIdToMiddlewareRequest(
+  request: CorrelationMiddlewareRequest,
+  ssrId: string
+): void {
+  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  request.headers.set(SSR_ID_HEADER, ssrId);
+}
+
+/**
  * When `__devtools_config` is present, sets internal header `x-devtools-ssr-id`
  * on the **mutable** Edge `request` (same pattern as `request.headers.set('x-url', ...)`).
  * Returns the SSR id to echo on the response, or `null` if debug cookie is absent.
@@ -217,29 +250,120 @@ interface CorrelationNextResponse {
  * `setSsrIdOnMiddlewareResponse(yourResponse, ssrId)` on whatever you return
  * (e.g. `I18nRes`).
  */
-export function prepareDevtoolsSsrRequest(request: CorrelationMiddlewareRequest): string | null {
+export function prepareDevtoolsSsrRequest(
+  request: CorrelationMiddlewareRequest,
+  options: { pathname?: string } = {}
+): string | null {
+  const pathname = options.pathname ?? '';
+  if (pathname && shouldSkipDevtoolsSsrCorrelation(pathname)) {
+    return null;
+  }
+
   if (!request.cookies.get(DEVTOOLS_CONFIG_COOKIE)?.value?.trim()) {
     return null;
   }
 
-  const forwarded = request.headers.get(SSR_ID_REQUEST_HEADER);
-  const ssrId =
-    forwarded && isValidForwardedSsrId(forwarded) ? forwarded : createSsrId();
+  if (!shouldAllocateNewDevtoolsSsrId(pathname)) {
+    return null;
+  }
 
-  request.headers.set(SSR_ID_REQUEST_HEADER, ssrId);
+  // One fresh id per document request — do not reuse __devtools_ssr_id cookie across pages.
+  const ssrId = createSsrId();
+  applySsrIdToMiddlewareRequest(request, ssrId);
   return ssrId;
 }
 
 /**
- * Sets `X-SSR-ID` on a middleware `NextResponse` when SSR correlation is active.
+ * Sets `X-SSR-ID` on the HTML response (what the Chrome extension reads).
  */
 export function setSsrIdOnMiddlewareResponse(
-  response: { headers: { set: (name: string, value: string) => void } },
+  response: {
+    headers: { set: (name: string, value: string) => void };
+    cookies?: { set: (name: string, value: string, options?: Record<string, unknown>) => void };
+  },
   ssrId: string | null
 ): void {
-  if (ssrId) {
-    response.headers.set(SSR_ID_HEADER, ssrId);
+  if (!ssrId) {
+    return;
   }
+
+  response.headers.set(SSR_ID_HEADER, ssrId);
+
+  // Clear legacy cookie that caused the same id to stick across page loads.
+  if (response.cookies?.set) {
+    response.cookies.set(DEVTOOLS_SSR_ID_COOKIE, '', {
+      path: '/',
+      maxAge: 0,
+      sameSite: 'lax',
+      httpOnly: true,
+      secure: typeof process !== 'undefined' && process.env.NODE_ENV === 'production'
+    });
+  }
+}
+
+interface MiddlewareResponseWithCookies {
+  headers: {
+    set: (name: string, value: string) => void;
+    forEach?: (callback: (value: string, key: string) => void) => void;
+  };
+  cookies?: {
+    getAll: () => Array<{
+      name: string;
+      value: string;
+      path?: string;
+      maxAge?: number;
+      secure?: boolean;
+      sameSite?: string | boolean;
+      httpOnly?: boolean;
+      domain?: string;
+    }>;
+    set: (name: string, value: string, options?: Record<string, unknown>) => void;
+  };
+}
+
+/**
+ * Forwards `x-devtools-ssr-id` to the App Router server via
+ * `NextResponse.next({ request: { headers } })`, then copies cookies/headers
+ * from your existing middleware response (e.g. i18n).
+ *
+ * Required when middleware mutates `request.headers` — otherwise RSC/axios on
+ * Node never see the id and each Magento call gets a new `X-SSR-ID`.
+ */
+export function forwardDevtoolsSsrRequestToServer<T extends MiddlewareResponseWithCookies>(
+  request: CorrelationMiddlewareRequest,
+  response: T,
+  ssrId: string | null,
+  NextResponse: {
+    next: (init?: { request?: { headers: Headers } }) => T;
+  }
+): T {
+  if (!ssrId) {
+    return response;
+  }
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(SSR_ID_REQUEST_HEADER, ssrId);
+  requestHeaders.set(SSR_ID_HEADER, ssrId);
+
+  const forwarded = NextResponse.next({
+    request: { headers: requestHeaders }
+  });
+
+  if (response.cookies?.getAll && forwarded.cookies?.set) {
+    for (const cookie of response.cookies.getAll()) {
+      const { name, value, ...options } = cookie;
+      forwarded.cookies.set(name, value, options);
+    }
+  }
+
+  if (typeof response.headers.forEach === 'function') {
+    response.headers.forEach((value, key) => {
+      forwarded.headers.set(key, value);
+    });
+  }
+
+  setSsrIdOnMiddlewareResponse(forwarded, ssrId);
+  return forwarded;
 }
 
 /**
@@ -254,15 +378,16 @@ export function setSsrIdOnMiddlewareResponse(
  */
 export function devtoolsSsrCorrelationMiddleware(
   request: CorrelationMiddlewareRequest,
-  NextResponse: CorrelationNextResponse
+  NextResponse: CorrelationNextResponse & {
+    next: (init?: { request?: { headers: Headers } }) => MiddlewareResponseWithCookies;
+  }
 ): ReturnType<CorrelationNextResponse['next']> {
   const ssrId = prepareDevtoolsSsrRequest(request);
   if (!ssrId) {
     return NextResponse.next();
   }
   const response = NextResponse.next();
-  setSsrIdOnMiddlewareResponse(response, ssrId);
-  return response;
+  return forwardDevtoolsSsrRequestToServer(request, response, ssrId, NextResponse);
 }
 
 // ============================================================================

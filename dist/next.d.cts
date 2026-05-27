@@ -124,6 +124,14 @@ interface CorrelationNextResponse {
     };
 }
 /**
+ * Paths that trigger extra middleware/SSR work but are not the storefront document.
+ * Correlating them produces a second `X-SSR-ID` (e.g. Chrome `com.chrome.devtools.json`)
+ * while the extension reads the id from the HTML response — ids then diverge from Magento.
+ */
+declare function shouldSkipDevtoolsSsrCorrelation(pathname: string): boolean;
+/** Only the storefront document should mint a brand-new SSR id when no cookie exists yet. */
+declare function shouldAllocateNewDevtoolsSsrId(pathname: string): boolean;
+/**
  * When `__devtools_config` is present, sets internal header `x-devtools-ssr-id`
  * on the **mutable** Edge `request` (same pattern as `request.headers.set('x-url', ...)`).
  * Returns the SSR id to echo on the response, or `null` if debug cookie is absent.
@@ -132,15 +140,54 @@ interface CorrelationNextResponse {
  * `setSsrIdOnMiddlewareResponse(yourResponse, ssrId)` on whatever you return
  * (e.g. `I18nRes`).
  */
-declare function prepareDevtoolsSsrRequest(request: CorrelationMiddlewareRequest): string | null;
+declare function prepareDevtoolsSsrRequest(request: CorrelationMiddlewareRequest, options?: {
+    pathname?: string;
+}): string | null;
 /**
- * Sets `X-SSR-ID` on a middleware `NextResponse` when SSR correlation is active.
+ * Sets `X-SSR-ID` on the HTML response (what the Chrome extension reads).
  */
 declare function setSsrIdOnMiddlewareResponse(response: {
     headers: {
         set: (name: string, value: string) => void;
     };
+    cookies?: {
+        set: (name: string, value: string, options?: Record<string, unknown>) => void;
+    };
 }, ssrId: string | null): void;
+interface MiddlewareResponseWithCookies {
+    headers: {
+        set: (name: string, value: string) => void;
+        forEach?: (callback: (value: string, key: string) => void) => void;
+    };
+    cookies?: {
+        getAll: () => Array<{
+            name: string;
+            value: string;
+            path?: string;
+            maxAge?: number;
+            secure?: boolean;
+            sameSite?: string | boolean;
+            httpOnly?: boolean;
+            domain?: string;
+        }>;
+        set: (name: string, value: string, options?: Record<string, unknown>) => void;
+    };
+}
+/**
+ * Forwards `x-devtools-ssr-id` to the App Router server via
+ * `NextResponse.next({ request: { headers } })`, then copies cookies/headers
+ * from your existing middleware response (e.g. i18n).
+ *
+ * Required when middleware mutates `request.headers` — otherwise RSC/axios on
+ * Node never see the id and each Magento call gets a new `X-SSR-ID`.
+ */
+declare function forwardDevtoolsSsrRequestToServer<T extends MiddlewareResponseWithCookies>(request: CorrelationMiddlewareRequest, response: T, ssrId: string | null, NextResponse: {
+    next: (init?: {
+        request?: {
+            headers: Headers;
+        };
+    }) => T;
+}): T;
 /**
  * Adds **`X-SSR-ID`** on the response and **`x-devtools-ssr-id`** on the request
  * (only when `__devtools_config` exists). For apps that already mutate
@@ -151,7 +198,13 @@ declare function setSsrIdOnMiddlewareResponse(response: {
  * @param NextResponse - `NextResponse` from `next/server`
  * @returns `NextResponse.next()`
  */
-declare function devtoolsSsrCorrelationMiddleware(request: CorrelationMiddlewareRequest, NextResponse: CorrelationNextResponse): ReturnType<CorrelationNextResponse['next']>;
+declare function devtoolsSsrCorrelationMiddleware(request: CorrelationMiddlewareRequest, NextResponse: CorrelationNextResponse & {
+    next: (init?: {
+        request?: {
+            headers: Headers;
+        };
+    }) => MiddlewareResponseWithCookies;
+}): ReturnType<CorrelationNextResponse['next']>;
 /** Options for {@link createDevToolsConfigHandler}. */
 interface DevToolsConfigHandlerOptions {
     /** Override the config cookie TTL in seconds. Defaults to {@link DEVTOOLS_CONFIG_TTL} (6 hours). */
@@ -337,4 +390,4 @@ type NextConfigWithExperimental = Record<string, unknown> & {
  */
 declare function withDevtoolsSsrBridge(nextConfig?: NextConfigWithExperimental): NextConfigWithExperimental;
 
-export { type DevToolsConfigHandlerOptions, type DevToolsProbeOptions, type NextBridgeConfig, type NextConfigWithExperimental, type NextSsrContext, attachSsrIdToNextResponse, createDevToolsConfigHandler, createNextSsrContext, createSsrContextFromCookies, devtoolsSsrCorrelationMiddleware, getAutoDebugFetch, handleDevToolsProbe, hasDevToolsProbe, prepareDevtoolsSsrRequest, readDevToolsConfig, setSsrIdOnMiddlewareResponse, withDevToolsHeaders, withDevtoolsSsrBridge };
+export { type DevToolsConfigHandlerOptions, type DevToolsProbeOptions, type NextBridgeConfig, type NextConfigWithExperimental, type NextSsrContext, attachSsrIdToNextResponse, createDevToolsConfigHandler, createNextSsrContext, createSsrContextFromCookies, devtoolsSsrCorrelationMiddleware, forwardDevtoolsSsrRequestToServer, getAutoDebugFetch, handleDevToolsProbe, hasDevToolsProbe, prepareDevtoolsSsrRequest, readDevToolsConfig, setSsrIdOnMiddlewareResponse, shouldAllocateNewDevtoolsSsrId, shouldSkipDevtoolsSsrCorrelation, withDevToolsHeaders, withDevtoolsSsrBridge };

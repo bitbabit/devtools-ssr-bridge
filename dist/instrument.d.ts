@@ -1,3 +1,5 @@
+export { pinSsrIdForRequest } from './ssr-id-store.js';
+
 /**
  * @module instrument
  *
@@ -18,6 +20,7 @@
  * export { register } from '@bitbabit/devtools-ssr-bridge/instrument';
  * ```
  */
+
 declare function register(): void;
 declare function patchFetch(): void;
 /**
@@ -25,6 +28,12 @@ declare function patchFetch(): void;
  * `@bitbabit/devtools-ssr-bridge/attach-axios` (or `patchAxios` per instance).
  */
 declare function patchAxiosDefault(): void;
+/**
+ * Wraps `axios.create()` so every instance gets SSR/debug interceptors.
+ */
+declare function patchAxiosCreate(axiosModule: AxiosLike & {
+    create?: (...args: unknown[]) => AxiosLike;
+}): void;
 declare function patchAxios(axiosInstance: AxiosLike): number;
 declare function getDebugHeaders(url: string): Promise<Record<string, string> | null>;
 interface AxiosRequestConfig {
@@ -40,4 +49,4 @@ interface AxiosLike {
     };
 }
 
-export { getDebugHeaders, patchAxios, patchAxiosDefault, patchFetch, register };
+export { getDebugHeaders, patchAxios, patchAxiosCreate, patchAxiosDefault, patchFetch, register };

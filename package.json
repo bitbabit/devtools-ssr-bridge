@@ -1,6 +1,6 @@
 {
   "name": "@bitbabit/devtools-ssr-bridge",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "SSR bridge utilities for Magento Developer Tools with Next.js and React SSR support.",
   "keywords": [
     "magento",
@@ -62,6 +62,11 @@
       "types": "./dist/next-app-route.d.ts",
       "import": "./dist/next-app-route.js",
       "require": "./dist/next-app-route.cjs"
+    },
+    "./ssr-correlation": {
+      "types": "./dist/ssr-correlation.d.ts",
+      "import": "./dist/ssr-correlation.js",
+      "require": "./dist/ssr-correlation.cjs"
     }
   },
   "bin": {
@@ -70,11 +75,13 @@
   "files": [
     "dist",
     "bin",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "docs"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts --dts --format esm,cjs --clean",
-    "dev": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts --dts --format esm,cjs --watch",
+    "build": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts src/ssr-correlation.ts src/ssr-id-store.ts --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts src/ssr-correlation.ts src/ssr-id-store.ts --dts --format esm,cjs --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {},

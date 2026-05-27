@@ -34,6 +34,13 @@ export const DEVTOOLS_PROBE_COOKIE = '__devtools_probe';
  */
 export const DEVTOOLS_CONFIG_COOKIE = '__devtools_config';
 
+/**
+ * httpOnly cookie mirroring the active SSR correlation ID for this browser
+ * session. Set by middleware together with `X-SSR-ID` so parallel RSC/axios
+ * calls read the same id via `cookies()` on the Node server.
+ */
+export const DEVTOOLS_SSR_ID_COOKIE = '__devtools_ssr_id';
+
 /** Default TTL for the probe cookie in seconds (5 minutes). */
 export const DEVTOOLS_PROBE_TTL = 300;
 

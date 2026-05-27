@@ -9,7 +9,8 @@
  * Usage:
  *   npx devtools-ssr-bridge-setup
  *
- * Creates / updates instrumentation and (App Router) api/devtools/config/route.{js,ts}.
+ * Creates / updates instrumentation, next.config wrap, api/devtools/config/route.
+ * Prints middleware + layout snippets (manual). See docs/SETUP.md in the package.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
@@ -19,8 +20,47 @@ import { resolve, dirname, join } from 'path';
 // Constants
 // ---------------------------------------------------------------------------
 
-const REGISTER_IMPORT_ESM = `export { register } from '@bitbabit/devtools-ssr-bridge/instrument';`;
-const REGISTER_IMPORT_CJS = `const { register } = require('@bitbabit/devtools-ssr-bridge/instrument');\nmodule.exports = { register };`;
+/** Recommended instrumentation (fetch + axios). Do not import app axios modules here. */
+const INSTRUMENTATION_RECOMMENDED = `/**
+ * Patches fetch + axios at server startup.
+ * Do not import app axios modules here (can break the instrumentation bundle).
+ */
+export async function register() {
+  const { register: registerDevtools } = await import('@bitbabit/devtools-ssr-bridge/instrument');
+  registerDevtools();
+
+  if (typeof window === 'undefined') {
+    const axios = (await import('axios')).default;
+    const { attachAxiosSsrDevtools } = await import('@bitbabit/devtools-ssr-bridge/attach-axios');
+    attachAxiosSsrDevtools(axios);
+    const { patchAxiosCreate } = await import('@bitbabit/devtools-ssr-bridge/instrument');
+    patchAxiosCreate(axios);
+  }
+}
+`;
+
+const NEXT_CONFIG_IMPORT = `import { withDevtoolsSsrBridge } from '@bitbabit/devtools-ssr-bridge/next';\n`;
+
+const MIDDLEWARE_SNIPPET = `
+// --- Manual: middleware (before i18nRouter / your router) ---
+// import { prepareDevtoolsSsrRequest, setSsrIdOnMiddlewareResponse } from '@bitbabit/devtools-ssr-bridge/next';
+// const devtoolsSsrId = prepareDevtoolsSsrRequest(request, { pathname });
+// const response = i18nRouter(request, i18nConfig); // or NextResponse.next()
+// setSsrIdOnMiddlewareResponse(response, devtoolsSsrId);
+// return response;
+`;
+
+const LAYOUT_SNIPPET = `
+// --- Manual: root layout (first line) ---
+// import { bindDevtoolsSsrCorrelation } from '@bitbabit/devtools-ssr-bridge/ssr-correlation';
+// await bindDevtoolsSsrCorrelation();
+`;
+
+const AXIOS_SNIPPET = `
+// --- Manual: your axios module (server only) ---
+// import { attachAxiosSsrDevtools } from '@bitbabit/devtools-ssr-bridge/attach-axios';
+// if (typeof window === 'undefined') attachAxiosSsrDevtools(axios, customerAxios);
+`;
 
 const PATCH_SNIPPET_TS = [
   `import { patchFetch } from '@bitbabit/devtools-ssr-bridge/instrument';`,
@@ -219,6 +259,53 @@ function alreadyPatched(filePath) {
   return content.includes('devtools-ssr-bridge');
 }
 
+function findNextConfigFile() {
+  return ['next.config.mjs', 'next.config.js', 'next.config.ts'].find(fileExists) || null;
+}
+
+function setupNextConfig() {
+  const configPath = findNextConfigFile();
+  if (!configPath) {
+    warn('No next.config.{mjs,js,ts} — add withDevtoolsSsrBridge manually (see docs/SETUP.md).');
+    return;
+  }
+
+  let content = readFile(configPath);
+  if (content.includes('withDevtoolsSsrBridge')) {
+    success(`next.config already uses withDevtoolsSsrBridge (${configPath})`);
+    return;
+  }
+
+  if (!content.includes('withDevtoolsSsrBridge')) {
+    const shebang = content.startsWith('#!') ? content.split('\n')[0] + '\n' : '';
+    const body = shebang ? content.slice(shebang.length) : content;
+    content = shebang + NEXT_CONFIG_IMPORT + body;
+  }
+
+  if (/export\s+default\s+nextConfig\s*;/.test(content)) {
+    content = content.replace(
+      /export\s+default\s+nextConfig\s*;/,
+      'export default withDevtoolsSsrBridge(nextConfig);',
+    );
+  } else if (/export\s+default\s+(\w+)\s*;/.test(content)) {
+    const name = content.match(/export\s+default\s+(\w+)\s*;/)[1];
+    content = content.replace(
+      new RegExp(`export\\s+default\\s+${name}\\s*;`),
+      `export default withDevtoolsSsrBridge(${name});`,
+    );
+  } else {
+    warn(`${configPath}: could not auto-wrap export — see docs/SETUP.md`);
+    return;
+  }
+
+  try {
+    writeFile(configPath, content);
+    success(`Updated ${configPath} with withDevtoolsSsrBridge`);
+  } catch {
+    warn(`Could not update ${configPath}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -272,33 +359,34 @@ function run() {
         ? join('src', `instrumentation${ext}`)
         : `instrumentation${ext}`;
 
-      const content = ts || pkgType === 'module' ? REGISTER_IMPORT_ESM : REGISTER_IMPORT_CJS;
+      const content = INSTRUMENTATION_RECOMMENDED;
       writeFile(filePath, content + '\n');
-      success(`Created ${filePath}`);
+      success(`Created ${filePath} (fetch + axios register)`);
     } catch {
       error('Could not create instrumentation file — fix permissions and re-run.');
       process.exitCode = 1;
     }
   }
 
-  // Step 3: App Router config cookie API (chrome extension / POST __devtools_config)
+  log('');
+  setupNextConfig();
+
   if (appRouter) {
     log('');
     setupConfigApiRoute(ts);
   }
 
-  // Step 4: Summary
   console.log('');
-  log('Setup complete! Here\'s what happens now:\n');
-  console.log('  1. Install the package (if not already):');
-  console.log('     npm i @bitbabit/devtools-ssr-bridge\n');
-  console.log('  2. Enable the Chrome extension on your site');
-  console.log('     (grant host permission for your Next.js domain)\n');
-  console.log('  3. App Router: devtools config route at api/devtools/config (if generated),');
-  console.log('     wrap next.config if you use withDevtoolsSsrBridge, middleware SSR correlation,');
-  console.log('     and attachAxiosSsrDevtools for axios — see package README.\n');
-  console.log('  4. Start your dev server — fetch() to Magento gets headers;');
-  console.log('     axios needs attach-axios as above.\n');
+  log('Setup complete!\n');
+  console.log('  Automated: instrumentation, next.config (if possible), api/devtools/config\n');
+  console.log('  Full guide: node_modules/@bitbabit/devtools-ssr-bridge/docs/SETUP.md\n');
+  console.log('  Manual steps (copy into your app):');
+  console.log(MIDDLEWARE_SNIPPET);
+  console.log(LAYOUT_SNIPPET);
+  console.log(AXIOS_SNIPPET);
+  console.log('');
+  console.log('  Then: enable Chrome extension, save API key, restart next dev.\n');
+  console.log('  Verify: one X-SSR-ID on HTML; same x-ssr-id on all SSR axios calls in Magento logs.\n');
 }
 
 run();
