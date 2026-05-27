@@ -1,4 +1,7 @@
 import {
+  pinSsrIdForRequest
+} from "./chunk-VGQOXZUY.js";
+import {
   SSR_ID_HEADER,
   SSR_ID_REQUEST_HEADER,
   isValidForwardedSsrId
@@ -8,14 +11,14 @@ import {
 } from "./chunk-3RG5ZIWI.js";
 
 // src/ssr-correlation.ts
-import { cache } from "react";
+import "server-only";
 var MIDDLEWARE_SSR_HEADER_NAMES = [
   SSR_ID_REQUEST_HEADER,
   "x-ssr-id",
   SSR_ID_HEADER,
   "x-middleware-request-x-devtools-ssr-id"
 ];
-var readSsrIdFromAppRouterHeaders = cache(async () => {
+async function readSsrIdFromHeaders() {
   try {
     if (typeof __require === "undefined") {
       return null;
@@ -25,16 +28,20 @@ var readSsrIdFromAppRouterHeaders = cache(async () => {
     for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
       const raw = store.get(name);
       if (raw && isValidForwardedSsrId(raw)) {
+        pinSsrIdForRequest(raw);
         return raw;
       }
     }
   } catch {
   }
   return null;
-});
-var bindDevtoolsSsrCorrelation = cache(async () => {
-  return readSsrIdFromAppRouterHeaders();
-});
+}
+async function readSsrIdFromAppRouterHeaders() {
+  return readSsrIdFromHeaders();
+}
+async function bindDevtoolsSsrCorrelation() {
+  return readSsrIdFromHeaders();
+}
 
 export {
   readSsrIdFromAppRouterHeaders,

@@ -24,7 +24,7 @@ __export(ssr_correlation_exports, {
   readSsrIdFromAppRouterHeaders: () => readSsrIdFromAppRouterHeaders
 });
 module.exports = __toCommonJS(ssr_correlation_exports);
-var import_react = require("react");
+var import_server_only = require("server-only");
 
 // src/core.ts
 var SSR_ID_HEADER = "X-SSR-ID";
@@ -37,6 +37,32 @@ function isValidForwardedSsrId(id) {
   return /^[a-zA-Z0-9._:-]+$/.test(id);
 }
 
+// src/ssr-id-store.ts
+var activeSsrIdAls;
+function getAls() {
+  if (activeSsrIdAls !== void 0) {
+    return activeSsrIdAls;
+  }
+  if (typeof require === "undefined") {
+    activeSsrIdAls = null;
+    return null;
+  }
+  try {
+    const { AsyncLocalStorage } = require("async_hooks");
+    activeSsrIdAls = new AsyncLocalStorage();
+    return activeSsrIdAls;
+  } catch {
+    activeSsrIdAls = null;
+    return null;
+  }
+}
+function pinSsrIdForRequest(ssrId) {
+  if (!isValidForwardedSsrId(ssrId)) {
+    return;
+  }
+  getAls()?.enterWith(ssrId);
+}
+
 // src/ssr-correlation.ts
 var MIDDLEWARE_SSR_HEADER_NAMES = [
   SSR_ID_REQUEST_HEADER,
@@ -44,7 +70,7 @@ var MIDDLEWARE_SSR_HEADER_NAMES = [
   SSR_ID_HEADER,
   "x-middleware-request-x-devtools-ssr-id"
 ];
-var readSsrIdFromAppRouterHeaders = (0, import_react.cache)(async () => {
+async function readSsrIdFromHeaders() {
   try {
     if (typeof require === "undefined") {
       return null;
@@ -54,16 +80,20 @@ var readSsrIdFromAppRouterHeaders = (0, import_react.cache)(async () => {
     for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
       const raw = store.get(name);
       if (raw && isValidForwardedSsrId(raw)) {
+        pinSsrIdForRequest(raw);
         return raw;
       }
     }
   } catch {
   }
   return null;
-});
-var bindDevtoolsSsrCorrelation = (0, import_react.cache)(async () => {
-  return readSsrIdFromAppRouterHeaders();
-});
+}
+async function readSsrIdFromAppRouterHeaders() {
+  return readSsrIdFromHeaders();
+}
+async function bindDevtoolsSsrCorrelation() {
+  return readSsrIdFromHeaders();
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   bindDevtoolsSsrCorrelation,

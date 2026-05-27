@@ -153,17 +153,27 @@ export function middleware(request) {
 
 ### 7. Root layout — bind SSR id for parallel RSC/axios (pick one)
 
-**Option A — root layout (recommended for apps that already use layout):**
+**Option A — root layout (recommended):**
+
+Use a **server-only** helper so `react` `cache` is never pulled into the client bundle (see `0.2.1+` or copy the pattern below):
 
 ```jsx
 // src/app/[locale]/layout.jsx
-import { bindDevtoolsSsrCorrelation } from '@bitbabit/devtools-ssr-bridge/ssr-correlation';
+import { bindDevtoolsSsrCorrelation } from '@/lib/devtools/bind-ssr-correlation.server';
 
 export default async function RootLayout({ children }) {
   await bindDevtoolsSsrCorrelation(); // first line, before any Magento calls
   // ...
 }
 ```
+
+```js
+// src/lib/devtools/bind-ssr-correlation.server.js — copy from SETUP or use @bitbabit/devtools-ssr-bridge@^0.2.1 ssr-correlation (server-only)
+import 'server-only';
+// ...reads next/headers, pins id via pinSsrIdForRequest
+```
+
+On **0.2.1+** you may import directly: `import { bindDevtoolsSsrCorrelation } from '@bitbabit/devtools-ssr-bridge/ssr-correlation'` (package is `server-only`).
 
 **Option B — `getHeaders()` helper:**
 

@@ -1,14 +1,13 @@
 /**
- * App Router SSR correlation — call {@link bindDevtoolsSsrCorrelation} once per
- * request tree (e.g. root layout) so all parallel axios/fetch calls share the
- * middleware `x-devtools-ssr-id` / `X-SSR-ID`.
+ * App Router SSR correlation — server-only (do not import from client components).
  */
-import { cache } from 'react';
+import 'server-only';
 import {
   isValidForwardedSsrId,
   SSR_ID_HEADER,
   SSR_ID_REQUEST_HEADER
 } from './core';
+import { pinSsrIdForRequest } from './ssr-id-store';
 
 const MIDDLEWARE_SSR_HEADER_NAMES = [
   SSR_ID_REQUEST_HEADER,
@@ -17,10 +16,7 @@ const MIDDLEWARE_SSR_HEADER_NAMES = [
   'x-middleware-request-x-devtools-ssr-id'
 ] as const;
 
-/**
- * Reads the SSR id forwarded from middleware into this RSC request.
- */
-export const readSsrIdFromAppRouterHeaders = cache(async (): Promise<string | null> => {
+async function readSsrIdFromHeaders(): Promise<string | null> {
   try {
     if (typeof require === 'undefined') {
       return null;
@@ -32,19 +28,26 @@ export const readSsrIdFromAppRouterHeaders = cache(async (): Promise<string | nu
     for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
       const raw = store.get(name);
       if (raw && isValidForwardedSsrId(raw)) {
+        pinSsrIdForRequest(raw);
         return raw;
       }
     }
   } catch {
-    // outside App Router
+    // outside App Router / build
   }
   return null;
-});
+}
 
 /**
- * Resolves the SSR id middleware forwarded into this RSC request. Call at the top
- * of root `layout.jsx` / `layout.tsx` before any Magento `axios` / `fetch`.
+ * Reads the SSR id forwarded from middleware into this RSC request.
  */
-export const bindDevtoolsSsrCorrelation = cache(async (): Promise<string | null> => {
-  return readSsrIdFromAppRouterHeaders();
-});
+export async function readSsrIdFromAppRouterHeaders(): Promise<string | null> {
+  return readSsrIdFromHeaders();
+}
+
+/**
+ * Call at the top of root layout before any Magento axios/fetch.
+ */
+export async function bindDevtoolsSsrCorrelation(): Promise<string | null> {
+  return readSsrIdFromHeaders();
+}

@@ -165,44 +165,81 @@ var init_core = __esm({
   }
 });
 
+// src/ssr-id-store.ts
+function getAls() {
+  if (activeSsrIdAls !== void 0) {
+    return activeSsrIdAls;
+  }
+  if (typeof require === "undefined") {
+    activeSsrIdAls = null;
+    return null;
+  }
+  try {
+    const { AsyncLocalStorage } = require("async_hooks");
+    activeSsrIdAls = new AsyncLocalStorage();
+    return activeSsrIdAls;
+  } catch {
+    activeSsrIdAls = null;
+    return null;
+  }
+}
+function pinSsrIdForRequest(ssrId) {
+  if (!isValidForwardedSsrId(ssrId)) {
+    return;
+  }
+  getAls()?.enterWith(ssrId);
+}
+var activeSsrIdAls;
+var init_ssr_id_store = __esm({
+  "src/ssr-id-store.ts"() {
+    "use strict";
+    init_core();
+  }
+});
+
 // src/ssr-correlation.ts
 var ssr_correlation_exports = {};
 __export(ssr_correlation_exports, {
   bindDevtoolsSsrCorrelation: () => bindDevtoolsSsrCorrelation,
   readSsrIdFromAppRouterHeaders: () => readSsrIdFromAppRouterHeaders
 });
-var import_react2, MIDDLEWARE_SSR_HEADER_NAMES, readSsrIdFromAppRouterHeaders, bindDevtoolsSsrCorrelation;
+async function readSsrIdFromHeaders() {
+  try {
+    if (typeof require === "undefined") {
+      return null;
+    }
+    const { headers: headersFn } = require("next/headers");
+    const store = await Promise.resolve(headersFn());
+    for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
+      const raw = store.get(name);
+      if (raw && isValidForwardedSsrId(raw)) {
+        pinSsrIdForRequest(raw);
+        return raw;
+      }
+    }
+  } catch {
+  }
+  return null;
+}
+async function readSsrIdFromAppRouterHeaders() {
+  return readSsrIdFromHeaders();
+}
+async function bindDevtoolsSsrCorrelation() {
+  return readSsrIdFromHeaders();
+}
+var import_server_only, MIDDLEWARE_SSR_HEADER_NAMES;
 var init_ssr_correlation = __esm({
   "src/ssr-correlation.ts"() {
     "use strict";
-    import_react2 = require("react");
+    import_server_only = require("server-only");
     init_core();
+    init_ssr_id_store();
     MIDDLEWARE_SSR_HEADER_NAMES = [
       SSR_ID_REQUEST_HEADER,
       "x-ssr-id",
       SSR_ID_HEADER,
       "x-middleware-request-x-devtools-ssr-id"
     ];
-    readSsrIdFromAppRouterHeaders = (0, import_react2.cache)(async () => {
-      try {
-        if (typeof require === "undefined") {
-          return null;
-        }
-        const { headers: headersFn } = require("next/headers");
-        const store = await Promise.resolve(headersFn());
-        for (const name of MIDDLEWARE_SSR_HEADER_NAMES) {
-          const raw = store.get(name);
-          if (raw && isValidForwardedSsrId(raw)) {
-            return raw;
-          }
-        }
-      } catch {
-      }
-      return null;
-    });
-    bindDevtoolsSsrCorrelation = (0, import_react2.cache)(async () => {
-      return readSsrIdFromAppRouterHeaders();
-    });
   }
 });
 
@@ -927,35 +964,7 @@ function DevToolsSetupPopup(props) {
 
 // src/instrument.ts
 init_core();
-
-// src/ssr-id-store.ts
-init_core();
-var activeSsrIdAls;
-function getAls() {
-  if (activeSsrIdAls !== void 0) {
-    return activeSsrIdAls;
-  }
-  if (typeof require === "undefined") {
-    activeSsrIdAls = null;
-    return null;
-  }
-  try {
-    const { AsyncLocalStorage } = require("async_hooks");
-    activeSsrIdAls = new AsyncLocalStorage();
-    return activeSsrIdAls;
-  } catch {
-    activeSsrIdAls = null;
-    return null;
-  }
-}
-function pinSsrIdForRequest(ssrId) {
-  if (!isValidForwardedSsrId(ssrId)) {
-    return;
-  }
-  getAls()?.enterWith(ssrId);
-}
-
-// src/instrument.ts
+init_ssr_id_store();
 var FORWARDED_SSR_HEADER_NAMES = [
   SSR_ID_REQUEST_HEADER,
   "x-ssr-id",

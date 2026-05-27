@@ -1,7 +1,7 @@
 import {
   bindDevtoolsSsrCorrelation,
   readSsrIdFromAppRouterHeaders
-} from "./chunk-A3RRDR5X.js";
+} from "./chunk-X3APFH26.js";
 import {
   CHROME_EXTENSION_DEFAULT_ALLOWED_PATHS,
   CHROME_EXTENSION_DEFAULT_EXCLUDED_PATHS
@@ -13,7 +13,7 @@ import {
   patchAxiosDefault,
   patchFetch,
   register
-} from "./chunk-HMRQSX5S.js";
+} from "./chunk-DXSPK45H.js";
 import {
   pinSsrIdForRequest
 } from "./chunk-VGQOXZUY.js";

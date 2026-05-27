@@ -5,7 +5,7 @@ import {
   patchAxiosDefault,
   patchFetch,
   register
-} from "./chunk-HMRQSX5S.js";
+} from "./chunk-DXSPK45H.js";
 import {
   pinSsrIdForRequest
 } from "./chunk-VGQOXZUY.js";

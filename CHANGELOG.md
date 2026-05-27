@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-05-27
+
+### Fixed
+
+- **`ssr-correlation`**: Marked `server-only` and removed `import { cache } from 'react'`, which broke client bundles with `The requested module 'react' does not provide an export named 'cache'`. Uses `pinSsrIdForRequest` instead.
+
 ## 0.2.0 — 2026-05-27
 
 ### Documentation

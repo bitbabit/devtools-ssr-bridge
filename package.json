@@ -1,6 +1,6 @@
 {
   "name": "@bitbabit/devtools-ssr-bridge",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "SSR bridge utilities for Magento Developer Tools with Next.js and React SSR support.",
   "keywords": [
     "magento",
@@ -84,7 +84,9 @@
     "dev": "tsup src/index.ts src/core.ts src/next.ts src/react.ts src/instrument.ts src/attach-axios.ts src/extension-align.ts src/next-app-route.ts src/ssr-correlation.ts src/ssr-id-store.ts --dts --format esm,cjs --watch",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "server-only": "^0.0.1"
+  },
   "devDependencies": {
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.0",
